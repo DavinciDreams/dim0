@@ -9,7 +9,16 @@
  * empty scene, or any render error) — callers must handle `null` and never let
  * a failed capture abort their work.
  */
-export type BoardCapture = () => Promise<Blob | null>
+export type BoardCaptureOptions = {
+  /**
+   * World-space rect to capture instead of the viewport (e.g. the user's
+   * selection), whether or not it's on screen. Padded by the same margin.
+   */
+  region?: { x: number; y: number; w: number; h: number }
+}
+
+
+export type BoardCapture = (opts?: BoardCaptureOptions) => Promise<Blob | null>
 
 
 let _capture: BoardCapture | null = null

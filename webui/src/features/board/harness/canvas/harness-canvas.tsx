@@ -106,6 +106,8 @@ const MAX_VIEWPORT_CAPTURE_DIM = 1568
 // Inflate the captured world rect past the exact viewport so edge nodes aren't clipped and the
 // model gets a little peripheral context (fraction of the longest side).
 const VIEWPORT_CAPTURE_MARGIN = 0.12
+// Max render density for a region (selection) capture, in bitmap px per world unit.
+const MAX_REGION_CAPTURE_SCALE = 2
 
 
 export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
@@ -181,18 +183,20 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
   // CURRENT viewport (real node content, not the minimap) on demand. Best-effort:
   // resolves null when a capture isn't possible so a failure never aborts a turn.
   useEffect(() => {
-    const capture: BoardCapture = async () => {
+    const capture: BoardCapture = async (opts) => {
       const renderer = rendererRef.current
       const wrap = wrapRef.current
       if (!renderer || !wrap) return null
       const rect = wrap.getBoundingClientRect()
       if (rect.width < 1 || rect.height < 1) return null
       try {
-        const vp = viewportWorldRect(store.getCamera(), rect.width, rect.height)
+        // A requested region (the user's selection) replaces the viewport, on or
+        // off screen; it's never blank because it bounds real nodes.
+        const vp = opts?.region ?? viewportWorldRect(store.getCamera(), rect.width, rect.height)
         // Skip a blank viewport (nodes exist but the user panned/zoomed to empty
         // space): a background-only image would contradict the text BOARD block and
         // the "screenshot attached" label. Null → the submit path attaches nothing.
-        if (store.querySpatial({ rect: vp }).nodes.length === 0) return null
+        if (!opts?.region && store.querySpatial({ rect: vp }).nodes.length === 0) return null
         // Capture a slightly larger zone than the exact viewport so edge nodes come
         // in whole and the model gets peripheral context. Inflate PROPORTIONALLY
         // (per-axis) so the aspect ratio is preserved.
@@ -204,7 +208,10 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
         const screenLong = Math.max(rect.width, rect.height)
         const vpLong = Math.max(vp.w, vp.h)
         const paddedLong = Math.max(padded.w, padded.h)
-        const scale = vpLong > 0 ? Math.min(screenLong / vpLong, MAX_VIEWPORT_CAPTURE_DIM / paddedLong) : 1
+        // A region isn't tied to the on-screen zoom: render it at up to 2x so small
+        // selections (handwriting, a single note) stay legible, under the same cap.
+        const density = opts?.region ? MAX_REGION_CAPTURE_SCALE : screenLong / vpLong
+        const scale = vpLong > 0 ? Math.min(density, MAX_VIEWPORT_CAPTURE_DIM / paddedLong) : 1
         // exportViewportImage renders the viewport AND composites real applet content
         // (an applet's `content` is JSX source, which a plain export would draw as text).
         return await exportViewportImage(store, padded, {
