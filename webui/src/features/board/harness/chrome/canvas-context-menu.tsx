@@ -156,6 +156,7 @@ const buildSelectedContextText = (
  */
 export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContextMenuProps) {
   const boardId = useBoardAppStore((s) => s.boardId)
+  const canEdit = useBoardAppStore((s) => s.canEdit)
   // AI actions need an in-browser LLM on local boards; hide the section when no
   // model key is usable (parity with the floating island) instead of offering
   // actions that can only fail. Online boards use the backend, so unaffected.
@@ -207,6 +208,17 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
   const handleSendForward = useCallback(() => store.bringForward(selection()), [store, selection])
   const handleSendToBack = useCallback(() => store.sendToBack(selection()), [store, selection])
   const handleSendToFront = useCallback(() => store.bringToFront(selection()), [store, selection])
+
+  // Auto-layout the selected notes in place (links shape it), as one undo step.
+  const handleTidyUp = useCallback(async () => {
+    const ids = selection().map(String).filter((id) => store.getNode(id as NodeId))
+    if (ids.length < 2) {
+      toast.error("Select at least two notes to tidy up.")
+      return
+    }
+    const { arrangeNodesInPlace } = await import("../agent/arrange-created-nodes")
+    await arrangeNodesInPlace(store, ids)
+  }, [store, selection])
 
   // ---- Export -----------------------------------------------------------
   const handleExportPng = useCallback(async () => {
@@ -376,6 +388,12 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
           <StackPlusIcon className="size-4" />
           Send to front
         </DropdownMenuItem>
+        {canEdit && (
+          <DropdownMenuItem onSelect={() => void handleTidyUp()}>
+            <TreeMapIcon className="size-4" />
+            Tidy up selection
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-muted-foreground">Export</DropdownMenuLabel>
