@@ -31,6 +31,7 @@ from topix.collab.agent_bridge import AgentBoardBridge
 from topix.collab.room import RoomRegistry
 from topix.config.config import Config
 from topix.datatypes.stage import StageEnum
+from topix.mcp_server.board_mcp import create_board_mcp
 from topix.nlp.pipeline.parsing import ParsingPipeline
 from topix.setup import setup
 from topix.store.chat import ChatStore
@@ -102,7 +103,9 @@ def create_app(stage: StageEnum):
             oplog=app.collab_oplog,
         )
 
-        yield
+        # The MCP transport needs its session manager running for the app's lifetime.
+        async with board_mcp.session_manager.run():
+            yield
 
         # Close stores. They no-op the pool close when sharing, then we close
         # the shared pool exactly once at the end.
@@ -154,6 +157,11 @@ def create_app(stage: StageEnum):
     app.include_router(finance.router)
     app.include_router(files.router)
     app.include_router(documents.router)
+
+    # External-agent access to synced boards: streamable-HTTP MCP at exactly
+    # `/mcp` (its route joins the app's router, so no mount/trailing-slash redirect).
+    board_mcp = create_board_mcp(app)
+    app.router.routes.extend(board_mcp.streamable_http_app().routes)
 
     return app
 
