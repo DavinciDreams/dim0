@@ -16,6 +16,8 @@ import { labelText } from "@/features/board/model"
 import { MAX_BOARD_DEPTH, canCreateSubBoard, nodeLimitFor } from "@/features/board/lib/board-limit"
 import { validateApplet } from "@/features/applet/compile"
 import { validateMiniAppSource } from "@/features/mini-app/validate"
+import { loadDiagramRenderer } from "@/features/diagram/load"
+import { diagramNodeSize } from "@/features/diagram/node-size"
 import { defineTool } from "./types"
 import type { Tool, ToolContext } from "./types"
 import { StoreMutator, HeadlessMutator, type BoardMutator } from "./board-mutator"
@@ -55,6 +57,22 @@ const workingLayerStore = async (ctx: ToolContext): Promise<CanvasStore> => {
  */
 const resolveBoardNode = (ctx: ToolContext, id: string): Node | undefined =>
   ctx.store.getNode(asNodeId(id)) ?? ctx.boardNotes?.get(id)
+
+
+type DiagramCheck = { ok: true; content: string; size: { w: number; h: number } } | { ok: false; error: string }
+
+
+/**
+ * Validate + render a diagram spec BEFORE it is persisted (lazy-loads the
+ * renderer). On success returns the spec pretty-printed and a node box fitted to
+ * the SVG's aspect; on failure an agent-facing error naming the bad field.
+ */
+const checkDiagram = async (content: string): Promise<DiagramCheck> => {
+  const { renderDiagramSource } = await loadDiagramRenderer()
+  const r = renderDiagramSource(content)
+  if (!r.ok) return { ok: false, error: `diagram invalid: ${r.error}` }
+  return { ok: true, content: JSON.stringify(JSON.parse(content) as unknown, null, 2), size: diagramNodeSize(r) }
+}
 
 
 // ---- this-turn creation index ----------------------------------------------
@@ -203,11 +221,11 @@ export const linkNotes = defineTool({
 
 export const writeNote = defineTool({
   name: "write_note",
-  description: "Create a new note, or fully rewrite an existing one when note_id is given. note_type: rectangle | sheet | applet | widget.",
+  description: "Create a new note, or fully rewrite an existing one when note_id is given. note_type: rectangle | sheet | applet | widget | diagram.",
   parameters: z.object({
-    content: z.string().describe("The complete note body after this write — prose, markdown, code, or applet source."),
+    content: z.string().describe("The complete note body after this write — prose, markdown, code, applet source, or a diagram's JSON spec."),
     label: z.string().optional().describe("Optional short title, stored separately from the body."),
-    note_type: z.string().optional().describe("Visual note type: rectangle | sheet | applet | widget."),
+    note_type: z.string().optional().describe("Visual note type: rectangle | sheet | applet | widget | diagram."),
     note_id: z.string().optional().describe("Existing note id to fully rewrite; omit to create a new note."),
     expected_version: EXPECTED_VERSION_SCHEMA,
     background_color: z.string().optional().describe(BG_COLOR_DESC),
@@ -252,8 +270,19 @@ export const writeNote = defineTool({
         return { error: `applet invalid: ${v.message}${v.line ? ` (line ${v.line}:${v.column})` : ""}` }
       }
     }
+    // And diagrams — validate + render the JSON spec so a bad one comes back with
+    // the failing field; a good one is stored pretty-printed, sized to its SVG.
+    let body = content
+    let size: { w: number; h: number } | undefined
+    const willBeDiagram = note_type === "diagram" || (!note_type && existing?.type === "diagram")
+    if (willBeDiagram) {
+      const d = await checkDiagram(content)
+      if (!d.ok) return { error: d.error }
+      body = d.content
+      size = d.size
+    }
 
-    const spec = { content, label, type: note_type, near: nearFor(near), colors: colorsFor(background_color, border_color) }
+    const spec = { content: body, label, type: note_type, size, near: nearFor(near), colors: colorsFor(background_color, border_color) }
     if (note_id) {
       // In the working folder → full rewrite (NOT a creation; the turn won't
       // re-arrange/recenter it). Existing anywhere else on the board (incl. a note
@@ -448,6 +477,11 @@ export const editNote = defineTool({
       return { error: "`old` occurs multiple times; expand it for uniqueness or set replace_all" }
     }
     const updated = replace_all === true ? current.split(old).join(replacement) : current.replace(old, replacement)
+    // A diagram's content is a JSON spec: refuse an edit that would break it.
+    if (field === "content" && node.type === "diagram") {
+      const d = await checkDiagram(updated)
+      if (!d.ok) return { error: d.error }
+    }
 
     await mutatorFor(ctx).patchNote(note_id, field === "label" ? { label: updated } : { content: updated })
     const after = store.getNode(asNodeId(note_id))

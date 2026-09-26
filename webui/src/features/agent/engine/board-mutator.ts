@@ -52,6 +52,8 @@ export type NoteSpec = {
   /** Explicit position (the raw escape hatch); omitted → auto/near. Pins the note. */
   x?: number
   y?: number
+  /** Explicit box size (e.g. a diagram fitted to its SVG); omitted → type default / content fit. */
+  size?: { w: number; h: number }
   /**
    * Relational placement next to an existing note (preferred over raw x/y): the
    * new note is placed on `dir` side of `nodeId`, `gap` px away, nudged along
@@ -261,6 +263,7 @@ const DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   sheet: { w: 440, h: 440 },
   "mini-app": { w: 720, h: 440 },
   applet: { w: 720, h: 440 },
+  diagram: { w: 720, h: 440 },
   widget: { w: 480, h: 320 },
   "code-sandbox": { w: 560, h: 360 },
 }
@@ -307,6 +310,7 @@ const NODE_TYPE: Record<string, string> = {
   // (frozen — use "applet"); existing mini-app nodes still rewrite because
   // rewriteNote preserves an existing node's type when note_type is omitted.
   applet: "applet",
+  diagram: "diagram",
   widget: "widget",
   "code-sandbox": "code-sandbox",
 }
@@ -333,7 +337,7 @@ export class StoreMutator implements BoardMutator {
     const nodeType = toNodeType(spec.type ?? "")
     const autoFitStyle = AUTOFIT_DISABLED_TYPES.has(nodeType) ? { autoFit: false } : undefined
     const storedColors = resolveNoteColors(spec.colors, nodeType)
-    const { w, h } = noteGeometry(nodeType, spec.content)
+    const { w, h } = spec.size ?? noteGeometry(nodeType, spec.content)
     const { x, y, placed } = this.placeNote(spec, w, h)
     // Plain rectangles are painted by the lib from `style`. A colorable custom
     // type (sheet) whose FILL was explicitly set gets it projected onto `style`
@@ -450,6 +454,8 @@ export class StoreMutator implements BoardMutator {
         content: spec.content,
         data,
         ...(style ? { style } : {}),
+        // A type change (e.g. rect → diagram) adopts the new type's fitted box.
+        ...(spec.size && nodeType !== node.type ? { w: spec.size.w, h: spec.size.h } : {}),
       }),
     )
     return { id: String(nid), created: false }

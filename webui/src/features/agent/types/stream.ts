@@ -138,6 +138,7 @@ export type ToolName =
   | "learn_generate_html_widget"
   | "learn_generate_applet"
   | "learn_generate_diagram"
+  | "learn_generate_architecture_diagram"
 
 
 export const ToolNameDescription: Record<ToolName, string> = {
@@ -171,6 +172,7 @@ export const ToolNameDescription: Record<ToolName, string> = {
   learn_generate_html_widget: "Learn widget and visual explainer skill",
   learn_generate_applet: "Learn interactive applet skill",
   learn_generate_diagram: "Learn mindmap and diagram skill",
+  learn_generate_architecture_diagram: "Learn architecture and sequence diagram skill",
 }
 
 
@@ -207,6 +209,7 @@ export const ToolNameIcon: Record<ToolName, AppIconComponent> = {
   learn_generate_html_widget: ScrollIcon,
   learn_generate_applet: ScrollIcon,
   learn_generate_diagram: ScrollIcon,
+  learn_generate_architecture_diagram: ScrollIcon,
 }
 
 

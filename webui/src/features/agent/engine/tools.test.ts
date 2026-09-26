@@ -369,6 +369,51 @@ describe("writeNote", () => {
     // Original source left intact (rejected before the write).
     expect(store.getNode(asNodeId(made.id))?.content).toBe("<Widget><div>hi</div></Widget>")
   })
+
+  const DIAGRAM = JSON.stringify({
+    diagram_type: "sequence",
+    meta: { title: "Ping" },
+    participants: [
+      { id: "a", type: "frontend", label: "Client" },
+      { id: "b", type: "backend", label: "Server" },
+    ],
+    messages: [
+      { from: "a", to: "b", label: "ping" },
+      { from: "b", to: "a", label: "pong", variant: "return" },
+    ],
+  })
+
+  it("rejects an invalid diagram spec with the failing field, without creating a node", async () => {
+    const before = store.getAllNodes().length
+    const bad = DIAGRAM.replace('"type":"backend"', '"type":"server"')
+    const res = (await writeNote.run({ content: bad, note_type: "diagram" }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/^diagram invalid: Invalid sequence diagram spec/)
+    expect(res.error).toContain('/participants/1 (id "b")/type')
+    expect(store.getAllNodes().length).toBe(before)
+  })
+
+  it("rejects diagram content that isn't JSON", async () => {
+    const res = (await writeNote.run({ content: "graph TD; A-->B", note_type: "diagram" }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/not valid JSON/)
+  })
+
+  it("accepts a valid diagram: stores the spec pretty-printed, sized to the SVG aspect", async () => {
+    const res = (await writeNote.run({ content: DIAGRAM, note_type: "diagram", label: "Ping" }, ctx)) as { id?: string; error?: string }
+    expect(res.error).toBeUndefined()
+    const node = store.getNode(asNodeId(res.id!))
+    expect(node?.type).toBe("diagram")
+    expect(node?.content).toBe(JSON.stringify(JSON.parse(DIAGRAM), null, 2))
+    // Not the flat 720x440 default: the box follows the rendered viewBox.
+    expect(node && node.h / node.w).not.toBeCloseTo(440 / 720, 2)
+  })
+
+  it("edit_note refuses an edit that would break a diagram spec", async () => {
+    const made = (await writeNote.run({ content: DIAGRAM, note_type: "diagram" }, ctx)) as { id: string }
+    const original = store.getNode(asNodeId(made.id))?.content
+    const res = (await editNote.run({ note_id: made.id, field: "content", old: '"to": "b"', new: '"to": "zed"' }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/diagram invalid/)
+    expect(store.getNode(asNodeId(made.id))?.content).toBe(original)
+  })
 })
 
 
