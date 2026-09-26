@@ -47,6 +47,7 @@ Use only these tags. Anything else ("unknown component") rejects.
 - `<Card className?>`, `<CardHeader>`, `<CardTitle>`, `<CardContent>`, `<CardFooter>` — the container family.
 - `<Button variant? size? onClick?>` — variants: `default | destructive | outline | secondary | ghost | link`.
 - `<Chart>`, `<Graph>`, `<Map>`, `<Table>` — see signatures below.
+- `<Mermaid>`, `<Latex>`, `<Markdown>`, `<CodeBlock>`, `<JsonViewer>`, `<Stats>`, `<ProgressTracker>`, `<Timeline>` — content blocks; see signatures below.
 
 ### HTML intrinsics (whitelisted)
 `div span p ul ol li h1`–`h6` · `table thead tbody tr th td` · `b i em strong small code pre kbd br hr` · `img` · `input textarea select option label button`.
@@ -135,6 +136,25 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
 ### `<Table columns rows sortable? className? />`
 - `columns`: `["name", "score"]` or `[{ key, label? }, …]`. `rows`: `[{ name: …, score: … }, …]`.
 - `sortable` makes headers click-to-sort.
+
+### `<Mermaid diagram height? />`
+- `diagram`: a Mermaid definition string (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, mindmap, …). Use a template literal for multi-line source. Syntax errors render inline — keep it valid.
+
+### `<Latex expression displayMode? />`
+- `expression`: TeX without `$` delimiters, e.g. `"E = mc^2"`. Backslashes must be doubled inside a string literal (`"\\frac{a}{b}"`). `displayMode={false}` for inline size.
+
+### `<Markdown content />` · `<CodeBlock code language? />`
+- `Markdown` renders GFM (lists, tables, links, `$math$`). `CodeBlock` highlights `code` (`language`: `"python"`, `"ts"`, `"sql"`, …).
+
+### `<JsonViewer data expandDepth? />`
+- `data`: any JSON value, shown as a collapsible tree; `expandDepth` levels open by default (1).
+
+### `<Stats stats columns? />`
+- `stats`: `[{ label, value, change?, changeLabel?, goodDirection?, sparkline? }]` — `change` is a percent (`12.5`, `-3`); `goodDirection: "down"` flips the color for metrics where lower is better; `sparkline` is a number array. `columns`: 1–4 (default 3).
+
+### `<ProgressTracker steps />` · `<Timeline events />`
+- `steps`: `[{ label, status?, description? }]`, `status`: `"done" | "active" | "pending" | "error"`.
+- `events`: `[{ date, title, description? }]`, shown in the given order.
 
 ---
 
