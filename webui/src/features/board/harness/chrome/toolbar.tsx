@@ -253,6 +253,7 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
   // for styling, and the nested Tooltip/Dropdown triggers both write
   // `data-state`, so a `data-[state=open]:` variant would be ambiguous).
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [inkMenuOpen, setInkMenuOpen] = useState(false)
 
   const isBoard = viewMode === "board"
   const isPan = tool === "pan"
@@ -470,7 +471,8 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
         color + width, so picking the pen and adjusting it is one gesture.
         The eraser (next) is a plain tool toggle with no settings of its own.
       */}
-      <Popover>
+      {/* Controlled: the settings only show while the pen is the active tool. */}
+      <Popover open={inkMenuOpen && tool === "ink"} onOpenChange={setInkMenuOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
