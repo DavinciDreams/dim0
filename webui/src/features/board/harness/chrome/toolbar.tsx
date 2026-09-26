@@ -238,6 +238,7 @@ function FlaredTray({
 export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
   const tool = useBoardAppStore((s) => s.tool)
   const setTool = useBoardAppStore((s) => s.setTool)
+  const canEdit = useBoardAppStore((s) => s.canEdit)
   const inkColor = useBoardAppStore((s) => s.inkColor)
   const setInkColor = useBoardAppStore((s) => s.setInkColor)
   const inkSize = useBoardAppStore((s) => s.inkSize)
@@ -363,6 +364,9 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
         <TooltipContent side="bottom" sideOffset={10}>Select</TooltipContent>
       </Tooltip>
 
+      {/* Creation tools: hidden for viewers, whose edits the server rejects. */}
+      {canEdit && (
+      <>
       <Separator orientation="vertical" className="hidden md:!h-6 md:block" />
 
       <DropdownMenu
@@ -560,6 +564,9 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
         <TooltipContent side="bottom" sideOffset={10}>Eraser</TooltipContent>
       </Tooltip>
 
+      </>
+      )}
+
       <Separator orientation="vertical" className="hidden md:!h-6 md:block" />
 
       <Tooltip>
@@ -587,7 +594,7 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
       </>
       )}
 
-      <HarnessToolbarMore local={local} />
+      {canEdit && <HarnessToolbarMore local={local} />}
     </FlaredTray>
   )
 }

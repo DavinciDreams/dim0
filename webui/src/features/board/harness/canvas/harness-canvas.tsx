@@ -559,7 +559,9 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
         >
           <HarnessCanvasInner
             theme={theme}
-            tool={tool}
+            // Viewers only navigate: a create/ink/eraser tool picked via a shortcut
+            // would draw locally and be rejected by the server, so pin them to select.
+            tool={canEdit || tool === "pan" ? tool : "select"}
             ready={ready}
             viewMode={viewMode}
             canCollab={!local}
