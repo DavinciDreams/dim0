@@ -71,6 +71,12 @@ export type LinkSpec = {
 }
 
 
+/** Where to move a note: an explicit position, or next to another note. */
+export type MoveSpec =
+  | { x: number; y: number; near?: undefined }
+  | { near: { nodeId: string; dir: NearDir; gap?: number }; x?: undefined; y?: undefined }
+
+
 /**
  * Content-level board write port. Domain verbs only — no ops, batches, or seq in
  * the signature; the impl decides how the write reaches persistence + sync.
@@ -88,6 +94,12 @@ export interface BoardMutator {
   createLink(spec: LinkSpec): Promise<{ id: string }>
   /** Create a folder (a nested sub-board) in this layer; returns its id. */
   createFolder(label: string): Promise<{ id: string }>
+  /** Remove a note and its incident links as one undoable batch; false if absent. */
+  deleteNote(id: string): Promise<boolean>
+  /** Reposition a note; returns its new top-left, or null if the note/anchor is absent. */
+  moveNote(id: string, to: MoveSpec): Promise<{ x: number; y: number } | null>
+  /** Remove a link as one undoable batch; false if absent. */
+  deleteLink(id: string): Promise<boolean>
 }
 
 
@@ -375,12 +387,15 @@ export class StoreMutator implements BoardMutator {
     return { x: origin.x, y: origin.y, placed: false }
   }
 
-  /** Relational anchor placement + local overlap nudge; null if the anchor is gone. */
-  private nearPosition(near: NonNullable<NoteSpec["near"]>, w: number, h: number): { x: number; y: number } | null {
+  /**
+   * Relational anchor placement + local overlap nudge; null if the anchor is gone.
+   * `selfId` (a note being moved) is ignored as a blocker.
+   */
+  private nearPosition(near: NonNullable<NoteSpec["near"]>, w: number, h: number, selfId?: string): { x: number; y: number } | null {
     const anchor = this.store.getNode(asNodeId(near.nodeId))
     if (!anchor) return null
     const gap = near.gap ?? NEAR_GAP
-    const others = this.store.getAllNodes().filter((n) => n.id !== anchor.id)
+    const others = this.store.getAllNodes().filter((n) => n.id !== anchor.id && String(n.id) !== selfId)
     let box = adjacentBox(anchor, near.dir, gap, w, h)
     // Step past overlaps ALONG dir (bounded) so the note lands where asked, clear.
     for (let i = 0; i < 64; i += 1) {
@@ -511,6 +526,31 @@ export class StoreMutator implements BoardMutator {
     })
     return { id: String(id) }
   }
+
+  async deleteNote(id: string): Promise<boolean> {
+    const nid = asNodeId(id)
+    if (!this.store.getNode(nid)) return false
+    // removeNode cascades incident edges inside the same undoable batch.
+    this.store.batch(() => this.store.removeNode(nid))
+    return true
+  }
+
+  async moveNote(id: string, to: MoveSpec): Promise<{ x: number; y: number } | null> {
+    const nid = asNodeId(id)
+    const node = this.store.getNode(nid)
+    if (!node) return null
+    const pos = to.near ? this.nearPosition(to.near, node.w, node.h, id) : { x: to.x, y: to.y }
+    if (!pos) return null
+    this.store.batch(() => this.store.updateNode(nid, { x: pos.x, y: pos.y }))
+    return pos
+  }
+
+  async deleteLink(id: string): Promise<boolean> {
+    const eid = asEdgeId(id)
+    if (!this.store.getEdge(eid)) return false
+    this.store.batch(() => this.store.removeEdge(eid))
+    return true
+  }
 }
 
 
@@ -595,6 +635,18 @@ export class HeadlessMutator implements BoardMutator {
 
   async createFolder(label: string): Promise<{ id: string }> {
     return (await this.ensure()).createFolder(label)
+  }
+
+  async deleteNote(id: string): Promise<boolean> {
+    return (await this.ensure()).deleteNote(id)
+  }
+
+  async moveNote(id: string, to: MoveSpec): Promise<{ x: number; y: number } | null> {
+    return (await this.ensure()).moveNote(id, to)
+  }
+
+  async deleteLink(id: string): Promise<boolean> {
+    return (await this.ensure()).deleteLink(id)
   }
 
   /** True if a node with `id` lives in the target layer (seeds on first call). */

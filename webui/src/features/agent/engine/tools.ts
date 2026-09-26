@@ -9,7 +9,7 @@
  * as a human edit. No server round-trips for these.
  */
 import { z } from "zod"
-import { asNodeId } from "@canvas-harness/core"
+import { asEdgeId, asNodeId } from "@canvas-harness/core"
 import type { CanvasStore, Node } from "@canvas-harness/core"
 import type { DimNodeData } from "@/features/board/model"
 import { labelText } from "@/features/board/model"
@@ -20,7 +20,9 @@ import { defineTool } from "./types"
 import type { Tool, ToolContext } from "./types"
 import { StoreMutator, HeadlessMutator, type BoardMutator } from "./board-mutator"
 import { arrangeNodesInPlace } from "@/features/board/harness/agent/arrange-created-nodes"
+import { isDurableDelete } from "@/features/board/harness/node-types/durable-delete"
 import type { MemoryKind, MemoryScope } from "@/features/board/persist/local/idb"
+import { noteVersion, staleVersionError } from "./note-version"
 
 
 /**
@@ -125,6 +127,15 @@ const nearFor = (
   near ? { nodeId: near.node_id, dir: near.dir, gap: near.gap } : undefined
 
 
+// Optimistic-concurrency guard shared by the content-changing tools.
+const EXPECTED_VERSION_DESC = "The `version` get_note returned when you read this note. If the note changed since (e.g. the user edited it), the call is refused so you don't overwrite their change. Pass it whenever you read the note in an earlier step or turn."
+const EXPECTED_VERSION_SCHEMA = z.string().optional().describe(EXPECTED_VERSION_DESC)
+
+
+// Error for an id that resolves on the board but not in the working folder.
+const OTHER_FOLDER_ERROR = { error: "That note is in another folder. Navigate into that folder before editing it." }
+
+
 export const createNote = defineTool({
   name: "create_note",
   description: "Create a note on the board with a title and optional body.",
@@ -198,17 +209,22 @@ export const writeNote = defineTool({
     label: z.string().optional().describe("Optional short title, stored separately from the body."),
     note_type: z.string().optional().describe("Visual note type: rectangle | sheet | applet | widget."),
     note_id: z.string().optional().describe("Existing note id to fully rewrite; omit to create a new note."),
+    expected_version: EXPECTED_VERSION_SCHEMA,
     background_color: z.string().optional().describe(BG_COLOR_DESC),
     border_color: z.string().optional().describe(BORDER_COLOR_DESC),
     near: NEAR_SCHEMA.optional().describe(NEAR_DESC),
   }),
-  run: async ({ content, label, note_type, note_id, background_color, border_color, near }, ctx) => {
+  run: async ({ content, label, note_type, note_id, expected_version, background_color, border_color, near }, ctx) => {
     const board = mutatorFor(ctx)
     // Resolve existence in the WORKING folder (off-scene when navigated away), so a
     // rewrite / re-edit of a note in that folder — incl. one created this turn —
     // targets it instead of erroring or duplicating.
     const store = await workingLayerStore(ctx)
     const existing = note_id ? store.getNode(asNodeId(note_id)) : undefined
+    if (existing) {
+      const stale = await staleVersionError(existing, expected_version)
+      if (stale) return stale
+    }
     // Validate a mini-app before persisting, so a malformed one is rejected with
     // line/col for the agent to fix this turn (not a silently-broken note). Key off
     // the RESULTING type: an explicit mini-app, OR a bare rewrite of an existing
@@ -243,8 +259,12 @@ export const writeNote = defineTool({
       // re-arrange/recenter it). Existing anywhere else on the board (incl. a note
       // made THIS turn in another layer) → refuse rather than mint a colliding
       // duplicate id. Nowhere → a brand-new note with this explicit id.
-      if (existing) return board.rewriteNote(note_id, spec)
-      if (existsOnBoard(ctx, note_id)) return { error: "That note is in another folder. Navigate into that folder before editing it." }
+      if (existing) {
+        const rewritten = await board.rewriteNote(note_id, spec)
+        const after = store.getNode(asNodeId(note_id))
+        return after ? { ...rewritten, version: await noteVersion(after) } : rewritten
+      }
+      if (existsOnBoard(ctx, note_id)) return OTHER_FOLDER_ERROR
       const created = await board.createNote({ ...spec, id: note_id })
       recordCreated(ctx, note_id, note_type ?? "rect")
       return created
@@ -373,7 +393,7 @@ export const createFolder = defineTool({
 
 export const getNote = defineTool({
   name: "get_note",
-  description: "Read an existing note's label, content, and type.",
+  description: "Read an existing note's label, content, type, and version (pass the version back as expected_version when you later rewrite, edit, or delete it).",
   parameters: z.object({
     note_id: z.string().describe("Id of the note to read."),
   }),
@@ -389,6 +409,7 @@ export const getNote = defineTool({
       label: labelText((node.data as DimNodeData | undefined)?.label),
       content: node.content ?? "",
       note_type: node.type,
+      version: await noteVersion(node),
     }
   },
 })
@@ -403,18 +424,19 @@ export const editNote = defineTool({
     old: z.string().describe("Exact substring to find; must be unique unless replace_all is set."),
     new: z.string().describe("Replacement text for `old`."),
     replace_all: z.boolean().optional().describe("When true, replace every occurrence of `old` instead of requiring uniqueness."),
+    expected_version: EXPECTED_VERSION_SCHEMA,
   }),
-  run: async ({ note_id, field, old, new: replacement, replace_all }, ctx) => {
+  run: async ({ note_id, field, old, new: replacement, replace_all, expected_version }, ctx) => {
     // Edit within the working folder (off-scene when navigated away).
     const store = await workingLayerStore(ctx)
     const node = store.getNode(asNodeId(note_id))
     if (!node) {
       // A cross-folder note (resolvable whole-board but not in this working folder)
       // can't be edited from here — say so, consistent with write_note.
-      return ctx.boardNotes?.get(note_id)
-        ? { error: "That note is in another folder. Navigate into that folder before editing it." }
-        : { error: "note not found" }
+      return ctx.boardNotes?.get(note_id) ? OTHER_FOLDER_ERROR : { error: "note not found" }
     }
+    const stale = await staleVersionError(node, expected_version)
+    if (stale) return stale
 
     // Compute the replacement here (tool logic); the write goes through the port.
     const prev = node.data as DimNodeData | undefined
@@ -428,7 +450,102 @@ export const editNote = defineTool({
     const updated = replace_all === true ? current.split(old).join(replacement) : current.replace(old, replacement)
 
     await mutatorFor(ctx).patchNote(note_id, field === "label" ? { label: updated } : { content: updated })
-    return { id: note_id }
+    const after = store.getNode(asNodeId(note_id))
+    return after ? { id: note_id, version: await noteVersion(after) } : { id: note_id }
+  },
+})
+
+
+export const deleteNote = defineTool({
+  name: "delete_note",
+  description:
+    "Delete a note (and the links attached to it) from your working folder. Only when the user asked for it, or to remove a note you created by mistake. The user can undo it. Folders and documents can't be deleted by you — ask the user.",
+  parameters: z.object({
+    note_id: z.string().describe("Id of the note to delete."),
+    expected_version: EXPECTED_VERSION_SCHEMA,
+  }),
+  run: async ({ note_id, expected_version }, ctx) => {
+    const store = await workingLayerStore(ctx)
+    const node = store.getNode(asNodeId(note_id))
+    if (!node) return existsOnBoard(ctx, note_id) ? OTHER_FOLDER_ERROR : { error: "note not found" }
+    // Durable types own state outside the store (a folder's subtree, a document's
+    // chunks), so their delete isn't undoable — leave those to the user's confirm flow.
+    if (isDurableDelete(node.type)) {
+      return { error: `delete_note can't delete a ${node.type}; ask the user to delete it themselves.` }
+    }
+    const stale = await staleVersionError(node, expected_version)
+    if (stale) return stale
+    const deleted = await mutatorFor(ctx).deleteNote(note_id)
+    return deleted ? { id: note_id, deleted: true } : { error: "note not found" }
+  },
+})
+
+
+export const moveNote = defineTool({
+  name: "move_note",
+  description:
+    "Move an existing note in your working folder: next to another note via `near` (preferred), or to an explicit x/y. Use when the user asks to reposition or regroup notes; for a general tidy-up prefer arrange_notes.",
+  parameters: z.object({
+    note_id: z.string().describe("Id of the note to move."),
+    near: NEAR_SCHEMA.optional().describe("Place it next to this note, nudged to avoid overlap."),
+    x: z.number().optional().describe("Explicit x canvas position (use with y)."),
+    y: z.number().optional().describe("Explicit y canvas position (use with x)."),
+  }),
+  run: async ({ note_id, near, x, y }, ctx) => {
+    const store = await workingLayerStore(ctx)
+    if (!store.getNode(asNodeId(note_id))) {
+      return existsOnBoard(ctx, note_id) ? OTHER_FOLDER_ERROR : { error: "note not found" }
+    }
+    if (near && near.node_id === note_id) return { error: "move_note: a note can't be placed next to itself." }
+    const to = near
+      ? { near: { nodeId: near.node_id, dir: near.dir, gap: near.gap } }
+      : x !== undefined && y !== undefined
+        ? { x, y }
+        : null
+    if (!to) return { error: "move_note: pass `near`, or both `x` and `y`." }
+    const pos = await mutatorFor(ctx).moveNote(note_id, to)
+    if (!pos) return { error: "move_note: the `near` anchor note was not found in the current working folder." }
+    return { id: note_id, x: pos.x, y: pos.y }
+  },
+})
+
+
+/** The endpoint node id of a canvas-harness edge end (`{ nodeId }`). */
+const edgeEndId = (end: unknown): string | undefined =>
+  end && typeof end === "object" && "nodeId" in end ? String((end as { nodeId: unknown }).nodeId) : undefined
+
+
+export const unlinkNotes = defineTool({
+  name: "unlink_notes",
+  description:
+    "Remove links from your working folder: one link by link_id (as returned by link_notes), or every link between two notes (either direction) by source_id + target_id.",
+  parameters: z.object({
+    link_id: z.string().optional().describe("Id of the link to remove."),
+    source_id: z.string().optional().describe("One endpoint note id (use with target_id)."),
+    target_id: z.string().optional().describe("The other endpoint note id (use with source_id)."),
+  }),
+  run: async ({ link_id, source_id, target_id }, ctx) => {
+    const store = await workingLayerStore(ctx)
+    let ids: string[]
+    if (link_id) {
+      ids = store.getEdge(asEdgeId(link_id)) ? [link_id] : []
+    } else if (source_id && target_id) {
+      const pair = new Set([source_id, target_id])
+      ids = store
+        .getAllEdges()
+        .filter((e) => {
+          const s = edgeEndId(e.source)
+          const t = edgeEndId(e.target)
+          return s !== undefined && t !== undefined && s !== t && pair.has(s) && pair.has(t)
+        })
+        .map((e) => String(e.id))
+    } else {
+      return { error: "unlink_notes: pass link_id, or both source_id and target_id." }
+    }
+    if (ids.length === 0) return { error: "unlink_notes: no matching link in the current working folder." }
+    const board = mutatorFor(ctx)
+    for (const id of ids) await board.deleteLink(id)
+    return { removed: ids.length, link_ids: ids }
   },
 })
 
@@ -628,4 +745,15 @@ export const localTools: Tool[] = [createNote, updateNote, linkNotes, searchNote
 
 
 /** The note-building tools the chat agent uses (matches the system prompt's vocabulary). */
-export const agentBuildTools: Tool[] = [writeNote, editNote, getNote, linkNotes, arrangeNotes, navigate, createFolder]
+export const agentBuildTools: Tool[] = [
+  writeNote,
+  editNote,
+  getNote,
+  linkNotes,
+  deleteNote,
+  moveNote,
+  unlinkNotes,
+  arrangeNotes,
+  navigate,
+  createFolder,
+]

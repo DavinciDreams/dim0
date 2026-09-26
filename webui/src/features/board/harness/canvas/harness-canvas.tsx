@@ -9,7 +9,7 @@ import { noteToNode } from "../convert/note-to-node"
 import { applyStyleMemory } from "./use-create-handlers"
 import { createHarnessTextareaEditor } from "./text-editor-adapter"
 import { setAgentBridge } from "../agent/agent-bridge"
-import { applyLinkOutput, applyNoteOutput } from "../agent/apply-tool-output"
+import { applyLinkOutput, applyNoteOutput, applyRemovalOutput } from "../agent/apply-tool-output"
 import { useHarnessApplyMindMap } from "../agent/use-harness-apply-mindmap"
 import { setCanvasStoreRef } from "../canvas-store-ref"
 import { setBoardCaptureRef, type BoardCapture } from "../board-capture-ref"
@@ -159,6 +159,8 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
         applyNoteOutput(store, queryClient, boardId, rootId, output),
       applyLinkOutput: (output) =>
         applyLinkOutput(store, boardId, output),
+      applyRemovalOutput: (output) =>
+        applyRemovalOutput(store, boardId, output),
     })
     return () => setAgentBridge(null)
   }, [store, queryClient, boardId, rootId])

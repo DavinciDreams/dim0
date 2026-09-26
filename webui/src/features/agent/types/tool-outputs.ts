@@ -131,6 +131,31 @@ export interface LinkNotesOutput {
   label: string | null
 }
 
+export interface DeleteNoteOutput {
+  type: "delete_note"
+  noteId: string
+  graphUid: string
+}
+
+
+export interface MoveNoteOutput {
+  type: "move_note"
+  noteId: string
+  graphUid: string
+  x: number
+  y: number
+  label: string | null
+  noteType: string
+  parentId?: string | null
+}
+
+
+export interface UnlinkNotesOutput {
+  type: "unlink_notes"
+  linkId: string
+  graphUid: string
+}
+
 export interface WeatherWidgetOutput {
   type: "display_weather_widget"
   city: string
@@ -163,6 +188,9 @@ export type ToolOutput =
   | EditNoteOutput
   | GetNoteOutput
   | LinkNotesOutput
+  | DeleteNoteOutput
+  | MoveNoteOutput
+  | UnlinkNotesOutput
   | WeatherWidgetOutput
   | StockWidgetOutput
   | ImageSearchWidgetOutput

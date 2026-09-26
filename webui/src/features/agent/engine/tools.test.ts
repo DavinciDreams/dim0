@@ -17,6 +17,9 @@ import {
   writeNote,
   getNote,
   editNote,
+  deleteNote,
+  moveNote,
+  unlinkNotes,
   arrangeNotes,
   navigate,
   createFolder,
@@ -272,7 +275,7 @@ describe("writeNote", () => {
   it("rewrites an existing note in place (created:false), preserving label when omitted", async () => {
     seed(store, "n1", { label: "keep", content: "old" })
     const res = (await writeNote.run({ content: "new", note_id: "n1" }, ctx)) as { id: string; created: boolean }
-    expect(res).toEqual({ id: "n1", created: false })
+    expect(res).toEqual({ id: "n1", created: false, version: expect.stringMatching(/^[0-9a-f]{12}$/) })
     expect(body(store, "n1")).toBe("new")
     expect(label(store, "n1")).toBe("keep") // label omitted → previous kept
   })
@@ -402,6 +405,7 @@ describe("getNote", () => {
       label: "T",
       content: "body",
       note_type: "rect",
+      version: expect.stringMatching(/^[0-9a-f]{12}$/),
     })
   })
 
@@ -417,6 +421,7 @@ describe("getNote", () => {
     const c = { store, rootId: null, boardNotes: new Map([["other", other]]) } as unknown as ToolContext
     expect(await getNote.run({ note_id: "other" }, c)).toEqual({
       id: "other", label: "Elsewhere", content: "body in another folder", note_type: "rect",
+      version: expect.stringMatching(/^[0-9a-f]{12}$/),
     })
   })
 
@@ -438,7 +443,7 @@ describe("editNote", () => {
   it("replaces a unique substring in content", async () => {
     seed(store, "n1", { content: "the quick brown fox" })
     const res = await editNote.run({ note_id: "n1", field: "content", old: "quick", new: "slow" }, ctx)
-    expect(res).toEqual({ id: "n1" })
+    expect(res).toEqual({ id: "n1", version: expect.stringMatching(/^[0-9a-f]{12}$/) })
     expect(body(store, "n1")).toBe("the slow brown fox")
   })
 
@@ -472,6 +477,144 @@ describe("editNote", () => {
     expect(await editNote.run({ note_id: "ghost", field: "content", old: "x", new: "y" }, ctx)).toEqual({
       error: "note not found",
     })
+  })
+})
+
+
+describe("expected_version (read-before-write guard)", () => {
+  const versionOf = async (id: string): Promise<string> =>
+    ((await getNote.run({ note_id: id }, ctx)) as { version: string }).version
+
+  it("is stable for unchanged content and changes when the content changes", async () => {
+    seed(store, "n1", { content: "abc" })
+    const v1 = await versionOf("n1")
+    expect(await versionOf("n1")).toBe(v1)
+    store.updateNode(asNodeId("n1"), { content: "abd" })
+    expect(await versionOf("n1")).not.toBe(v1)
+  })
+
+  it("ignores position changes (a move is not a conflict)", async () => {
+    seed(store, "n1", { content: "abc" })
+    const v1 = await versionOf("n1")
+    store.updateNode(asNodeId("n1"), { x: 400, y: 300 })
+    expect(await versionOf("n1")).toBe(v1)
+  })
+
+  it("edit_note applies with a current version and returns the new one", async () => {
+    seed(store, "n1", { content: "the quick fox" })
+    const v1 = await versionOf("n1")
+    const res = (await editNote.run({ note_id: "n1", field: "content", old: "quick", new: "slow", expected_version: v1 }, ctx)) as { version: string }
+    expect(body(store, "n1")).toBe("the slow fox")
+    expect(res.version).toBe(await versionOf("n1"))
+    expect(res.version).not.toBe(v1)
+  })
+
+  it("edit_note refuses a stale version and leaves the user's edit intact", async () => {
+    seed(store, "n1", { content: "the quick fox" })
+    const v1 = await versionOf("n1")
+    store.updateNode(asNodeId("n1"), { content: "the quick red fox" }) // user edits mid-turn
+    const res = (await editNote.run({ note_id: "n1", field: "content", old: "quick", new: "slow", expected_version: v1 }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/changed since you read it/)
+    expect(body(store, "n1")).toBe("the quick red fox")
+  })
+
+  it("write_note refuses a stale full rewrite", async () => {
+    seed(store, "n1", { content: "draft" })
+    const v1 = await versionOf("n1")
+    store.updateNode(asNodeId("n1"), { content: "user's version" })
+    const res = (await writeNote.run({ note_id: "n1", content: "agent's stale copy", expected_version: v1 }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/changed since you read it/)
+    expect(body(store, "n1")).toBe("user's version")
+  })
+})
+
+
+describe("deleteNote", () => {
+  it("removes the note and its incident links", async () => {
+    seed(store, "a")
+    seed(store, "b")
+    await linkNotes.run({ sourceId: "a", targetId: "b" }, ctx)
+    expect(store.getAllEdges()).toHaveLength(1)
+    expect(await deleteNote.run({ note_id: "a" }, ctx)).toEqual({ id: "a", deleted: true })
+    expect(store.getNode(asNodeId("a"))).toBeUndefined()
+    expect(store.getAllEdges()).toHaveLength(0)
+  })
+
+  it("refuses durable types (folders, documents)", async () => {
+    const { folder_id } = (await createFolder.run({ label: "F" }, ctx)) as { folder_id: string }
+    const res = (await deleteNote.run({ note_id: folder_id }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/can't delete a folder/)
+    expect(store.getNode(asNodeId(folder_id))).toBeDefined()
+  })
+
+  it("refuses a stale version", async () => {
+    seed(store, "n1", { content: "x" })
+    const { version } = (await getNote.run({ note_id: "n1" }, ctx)) as { version: string }
+    store.updateNode(asNodeId("n1"), { content: "y" })
+    const res = (await deleteNote.run({ note_id: "n1", expected_version: version }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/changed since you read it/)
+    expect(store.getNode(asNodeId("n1"))).toBeDefined()
+  })
+
+  it("returns an error for a missing note", async () => {
+    expect(await deleteNote.run({ note_id: "ghost" }, ctx)).toEqual({ error: "note not found" })
+  })
+})
+
+
+describe("moveNote", () => {
+  it("moves to an explicit x/y", async () => {
+    seed(store, "n1")
+    expect(await moveNote.run({ note_id: "n1", x: 250, y: 125 }, ctx)).toEqual({ id: "n1", x: 250, y: 125 })
+    const node = store.getNode(asNodeId("n1"))
+    expect({ x: node?.x, y: node?.y }).toEqual({ x: 250, y: 125 })
+  })
+
+  it("moves next to an anchor without overlapping it", async () => {
+    seed(store, "anchor")
+    seed(store, "n1")
+    const res = (await moveNote.run({ note_id: "n1", near: { node_id: "anchor", dir: "right" } }, ctx)) as { x: number }
+    expect(res.x).toBeGreaterThanOrEqual(100) // anchor is 100 wide at x=0
+  })
+
+  it("requires near or both x and y", async () => {
+    seed(store, "n1")
+    const res = (await moveNote.run({ note_id: "n1", x: 10 }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/pass `near`, or both/)
+  })
+
+  it("errors when the anchor is missing", async () => {
+    seed(store, "n1")
+    const res = (await moveNote.run({ note_id: "n1", near: { node_id: "ghost", dir: "left" } }, ctx)) as { error?: string }
+    expect(res.error).toMatch(/anchor note was not found/)
+  })
+})
+
+
+describe("unlinkNotes", () => {
+  it("removes a link by id", async () => {
+    seed(store, "a")
+    seed(store, "b")
+    const { id } = (await linkNotes.run({ sourceId: "a", targetId: "b" }, ctx)) as { id: string }
+    expect(await unlinkNotes.run({ link_id: id }, ctx)).toEqual({ removed: 1, link_ids: [id] })
+    expect(store.getAllEdges()).toHaveLength(0)
+  })
+
+  it("removes every link between two notes in either direction, leaving others", async () => {
+    seed(store, "a")
+    seed(store, "b")
+    seed(store, "c")
+    await linkNotes.run({ sourceId: "a", targetId: "b" }, ctx)
+    await linkNotes.run({ sourceId: "b", targetId: "a" }, ctx)
+    await linkNotes.run({ sourceId: "a", targetId: "c" }, ctx)
+    const res = (await unlinkNotes.run({ source_id: "b", target_id: "a" }, ctx)) as { removed: number }
+    expect(res.removed).toBe(2)
+    expect(store.getAllEdges()).toHaveLength(1)
+  })
+
+  it("errors when nothing matches or args are missing", async () => {
+    expect(((await unlinkNotes.run({ link_id: "ghost" }, ctx)) as { error?: string }).error).toMatch(/no matching link/)
+    expect(((await unlinkNotes.run({ source_id: "a" }, ctx)) as { error?: string }).error).toMatch(/pass link_id/)
   })
 })
 

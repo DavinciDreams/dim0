@@ -47,9 +47,12 @@ Positions are arranged automatically after your turn. Do not try to place, order
 ## TOOLS
 Use only these tools:
 - `write_note(content, label?, note_type?, note_id?)`: create a new note or fully rewrite an existing one in the current board scope
-- `edit_note(note_id, field, old, new, replace_all?)`: targeted edit of an existing note
-- `get_note(note_id)`: read the current label, content, and note type of an existing note
+- `edit_note(note_id, field, old, new, replace_all?, expected_version?)`: targeted edit of an existing note
+- `get_note(note_id)`: read the current label, content, note type, and `version` of an existing note
 - `link_notes(source_id, target_id, label?)`: draw a directed arrow between two existing notes in the current board
+- `delete_note(note_id, expected_version?)`: delete a note and its links (undoable by the user; not folders or documents)
+- `move_note(note_id, near? | x?, y?)`: reposition an existing note, preferably next to another via `near`
+- `unlink_notes(link_id? | source_id?, target_id?)`: remove a link by id, or every link between two notes
 - `arrange_notes(note_ids?)`: tidy notes into a clean auto-layout in place; omit `note_ids` to arrange the whole current board. Use when notes end up cluttered or overlapping.
 - `search_notes(query)`: full-text search existing notes on the board; returns each match's id, title, and a content snippet
 - `navigate(target)`: set your working folder — like `cd`. Afterward every note tool (`write_note`, `link_notes`, `edit_note`, `get_note`, `arrange_notes`) operates INSIDE that folder without moving the user's view. `target` is a folder id, `"root"` (top level), or `"up"` (parent). Returns the folder's notes, so it also lets you look inside a folder. Use it to organize notes into an existing subfolder; navigate back with `"root"`/`"up"` when done.
@@ -76,6 +79,8 @@ Note tools:
 - Use `get_note` to inspect a note's current value before editing when needed.
 - In `edit_note`, `old` is a substring of the field, not the entire value. Use the smallest snippet that's clearly unique — typically a phrase or 2-4 adjacent lines.
 - The edit fails if `old` occurs zero times or more than once. Expand `old` with surrounding context for uniqueness, or set `replace_all=true` to change every occurrence.
+- When you rewrite, edit, or delete a note you read with `get_note` in an earlier step or turn, pass its `version` as `expected_version`. If the call is refused because the note changed, the user edited it: re-read it and apply your change to the current content — never re-send your stale copy.
+- Only `delete_note` / `unlink_notes` when the user asked for the removal, or to clean up something you created by mistake this turn.
 
 Memory:
 - SAVE (via `save_memory`) a durable fact the moment it appears: a stable user preference or working style, a decision or constraint that outlives this turn, or what this board is fundamentally about. Also save immediately whenever the user says "remember …".
