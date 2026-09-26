@@ -11,6 +11,7 @@ import type { CanvasStore, NodeId, Renderer } from "@canvas-harness/core"
 // snapDOM (~50 KB) via the applet snapshot module, which must stay off the eagerly-loaded
 // board bundle. Do NOT add a static import of "../export/export-selection-image" here.
 import {
+  ClockCounterClockwise as ClockCounterClockwiseIcon,
   Clipboard as ClipboardIcon,
   StackMinus as StackMinusIcon,
   StackPlus as StackPlusIcon,
@@ -43,6 +44,7 @@ import { useLocalTransform, type LocalTransformKind } from "@/features/agent/loc
 import { useHasUsableModel } from "@/features/agent/services/use-agent-availability"
 import { useBoardAppStore } from "../store/board-app-store"
 import { nodeToNote } from "../convert/node-to-note"
+import { NoteHistoryDialog } from "./note-history-dialog"
 import type { NoteNode } from "@/features/board/types/flow"
 
 
@@ -209,6 +211,13 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
   const handleSendToBack = useCallback(() => store.sendToBack(selection()), [store, selection])
   const handleSendToFront = useCallback(() => store.bringToFront(selection()), [store, selection])
 
+  // Version history is server-side, so it exists only for synced boards.
+  const [historyNoteId, setHistoryNoteId] = useState<string | null>(null)
+  const singleNoteId = useCallback((): string | null => {
+    const ids = selection().map(String).filter((id) => store.getNode(id as NodeId))
+    return ids.length === 1 ? ids[0] : null
+  }, [store, selection])
+
   // Auto-layout the selected notes in place (links shape it), as one undo step.
   const handleTidyUp = useCallback(async () => {
     const ids = selection().map(String).filter((id) => store.getNode(id as NodeId))
@@ -343,6 +352,7 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
   )
 
   return (
+    <>
     <DropdownMenu open={!!menuPos} onOpenChange={(open) => { if (!open) closeMenu() }} modal={false}>
       {/* Zero-size anchor placed at the click point; Radix positions the menu
           against it (with viewport collision) while the canvas keeps its own
@@ -392,6 +402,12 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
           <DropdownMenuItem onSelect={() => void handleTidyUp()}>
             <TreeMapIcon className="size-4" />
             Tidy up selection
+          </DropdownMenuItem>
+        )}
+        {canEdit && !isLocal && singleNoteId() && (
+          <DropdownMenuItem onSelect={() => setHistoryNoteId(singleNoteId())}>
+            <ClockCounterClockwiseIcon className="size-4" />
+            Version history…
           </DropdownMenuItem>
         )}
 
@@ -488,5 +504,7 @@ export function CanvasContextMenu({ wrapRef, store, rendererRef }: CanvasContext
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    <NoteHistoryDialog store={store} boardId={boardId} noteId={historyNoteId} onClose={() => setHistoryNoteId(null)} />
+    </>
   )
 }
