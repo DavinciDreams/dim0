@@ -10,14 +10,20 @@ export const DEFAULT_DIAGRAM_SIZE = { w: 720, h: 440 }
 const CHROME_X = 16
 const CHROME_Y = 48
 const MIN_W = 480
-const MAX_W = 1080
-const MAX_H = 1400
+// Longest side a diagram box grows to; beyond it the whole diagram scales down
+// (keeping its aspect) instead of being drawn smaller than its natural size.
+const MAX_SIDE = 2400
 
 
-/** Node box that fits a diagram of `viewBox` size at its own aspect ratio. */
+/**
+ * Node box that shows the whole diagram at its natural (1:1) size plus the
+ * header chrome, so a new diagram is readable without resizing. Very large
+ * diagrams shrink uniformly to fit MAX_SIDE; tiny ones widen to MIN_W.
+ */
 export const diagramNodeSize = (viewBox: { width: number; height: number }): { w: number; h: number } => {
   if (!(viewBox.width > 0 && viewBox.height > 0)) return DEFAULT_DIAGRAM_SIZE
-  const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(viewBox.width * 0.75)))
-  const h = Math.min(MAX_H, Math.round(((w - CHROME_X) * viewBox.height) / viewBox.width) + CHROME_Y)
-  return { w, h }
+  const scale = Math.min(1, MAX_SIDE / Math.max(viewBox.width, viewBox.height))
+  const svgW = Math.max(MIN_W - CHROME_X, viewBox.width * scale)
+  const svgH = (svgW * viewBox.height) / viewBox.width
+  return { w: Math.round(svgW + CHROME_X), h: Math.round(svgH + CHROME_Y) }
 }

@@ -454,8 +454,9 @@ export class StoreMutator implements BoardMutator {
         content: spec.content,
         data,
         ...(style ? { style } : {}),
-        // A type change (e.g. rect → diagram) adopts the new type's fitted box.
-        ...(spec.size && nodeType !== node.type ? { w: spec.size.w, h: spec.size.h } : {}),
+        // A type change (e.g. rect → diagram) adopts the new type's fitted box, and a
+        // rewritten diagram refits to its new drawing so it isn't shown shrunk.
+        ...(spec.size && (nodeType === "diagram" || nodeType !== node.type) ? { w: spec.size.w, h: spec.size.h } : {}),
       }),
     )
     return { id: String(nid), created: false }
