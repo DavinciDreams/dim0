@@ -5,6 +5,9 @@
 import { placeArchitecture, placeSequence, type ArchitectureLayoutOptions } from "./auto-layout"
 import { parseDiagramSpec, type ArchitectureSpec, type DiagramSpec, type ParsedDiagramSpec } from "./schema"
 import { sanitizeSvg } from "./sanitize"
+
+
+export { scopeSvgIds } from "./sanitize"
 import { compileWorkflow, renderArchitecture, renderSequence } from "./vendor/archify/index.mjs"
 
 

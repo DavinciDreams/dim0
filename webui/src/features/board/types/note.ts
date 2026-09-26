@@ -127,6 +127,12 @@ export const DEFAULT_MINI_APP_HEIGHT = 440
 export const DEFAULT_APPLET_WIDTH = 720
 export const DEFAULT_APPLET_HEIGHT = 440
 
+// Diagram: typed architecture/sequence/workflow SVG. Agent-created diagrams are
+// re-sized to their SVG aspect (features/diagram/node-size.ts); this is the fallback.
+// Keep in sync with get_default_note_size in backend/topix/agents/notes/service.py.
+export const DEFAULT_DIAGRAM_WIDTH = 720
+export const DEFAULT_DIAGRAM_HEIGHT = 440
+
 // A toolbar-created applet has no editor/expand surface yet, so seed a working
 // starter (a counter) — the user sees a live widget immediately and the agent can
 // rewrite it, rather than an empty, uneditable card.
@@ -166,6 +172,8 @@ export const createDefaultNoteProperties = ({ type = 'rectangle' }: { type?: Nod
     ? { width: DEFAULT_MINI_APP_WIDTH, height: DEFAULT_MINI_APP_HEIGHT }
     : type === 'applet'
     ? { width: DEFAULT_APPLET_WIDTH, height: DEFAULT_APPLET_HEIGHT }
+    : type === 'diagram'
+    ? { width: DEFAULT_DIAGRAM_WIDTH, height: DEFAULT_DIAGRAM_HEIGHT }
     : type === 'ellipse' || type === 'layered-circle'
     ? { width: DEFAULT_ELLIPSE_NOTE_WIDTH, height: DEFAULT_ELLIPSE_NOTE_HEIGHT }
     : type === 'diamond' || type === 'soft-diamond' || type === 'layered-diamond'

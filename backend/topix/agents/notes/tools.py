@@ -37,10 +37,11 @@ from topix.datatypes.resource import RichText
 from topix.mini_app import compile_mini_app_source
 from topix.store.graph import GraphStore
 
-# Types this agent can't author: `applet` source is a JSX grammar only the
-# browser agent is taught (and validates), so a backend write would persist a
-# broken node. The enum still carries it because synced boards persist applets.
-_AGENT_UNSUPPORTED_NOTE_TYPES: frozenset[NodeType] = frozenset({NodeType.APPLET})
+# Types this agent can't author: `applet` source is a JSX grammar and `diagram`
+# a typed Archify JSON spec that only the browser agent is taught (and
+# validates), so a backend write would persist a broken node. The enum still
+# carries them because synced boards persist them.
+_AGENT_UNSUPPORTED_NOTE_TYPES: frozenset[NodeType] = frozenset({NodeType.APPLET, NodeType.DIAGRAM})
 
 
 def _reject_unsupported_note_type(note_type: NodeType) -> None:

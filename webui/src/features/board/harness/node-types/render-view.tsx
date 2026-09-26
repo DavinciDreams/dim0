@@ -3,6 +3,7 @@ import type { NodeId } from "@canvas-harness/core"
 import { useCanvasStore } from "@canvas-harness/react"
 import { AppletNodeView } from "./applet"
 import { CodeSandboxView } from "./code-sandbox"
+import { DiagramNodeView } from "./diagram"
 import { DocumentView } from "./document"
 import { FolderView } from "./folder"
 import { MiniAppView } from "./mini-app"
@@ -23,6 +24,7 @@ const VIEW_REGISTRY: Readonly<Record<string, (props: { id: NodeId }) => ReactNod
   widget: WidgetView,
   "mini-app": MiniAppView,
   applet: AppletNodeView,
+  diagram: DiagramNodeView,
   "code-sandbox": CodeSandboxView,
   sheet: SheetView,
 }
