@@ -14,13 +14,18 @@ from agents.tool_context import ToolContext
 from topix.agents.datatypes.context import Context
 from topix.agents.notes.service import build_note, get_default_note_size
 from topix.agents.notes.tools import (
+    create_delete_note_tool,
     create_edit_note_tool,
     create_get_note_tool,
     create_link_notes_tool,
+    create_move_note_tool,
+    create_unlink_notes_tool,
     create_write_note_tool,
+    note_version,
 )
+from topix.datatypes.note.link import Link
 from topix.datatypes.note.note import Note
-from topix.datatypes.note.style import NodeType
+from topix.datatypes.note.style import NodeType, Style
 from topix.datatypes.resource import RichText
 
 
@@ -668,3 +673,146 @@ async def test_link_notes_tool_schema_hides_board_scope() -> None:
     assert "label" in properties
     required = set(tool.params_json_schema.get("required", []))
     assert {"source_id", "target_id"}.issubset(required)
+
+
+
+# --- read-before-write guard + delete / move / unlink -------------------------
+
+
+def _note(content: str = "body", **kwargs) -> Note:
+    """Build a board-scoped rectangle note for guard tests."""
+    return Note(id="note-1", graph_uid="graph-1", content=RichText(markdown=content), **kwargs)
+
+
+def test_note_version_tracks_content_not_position() -> None:
+    """The version changes with label/content/type but not with position."""
+    base = _note("alpha")
+    moved = base.model_copy(deep=True)
+    moved.properties.node_position.position.x = 999
+    edited = base.model_copy(deep=True)
+    edited.content = RichText(markdown="beta")
+
+    assert len(note_version(base)) == 12
+    assert note_version(moved) == note_version(base)
+    assert note_version(edited) != note_version(base)
+
+
+@pytest.mark.asyncio
+async def test_get_note_returns_version() -> None:
+    """get_note exposes the content version the agent passes back as expected_version."""
+    graph_store = DummyGraphStore()
+    note = _note("alpha")
+    graph_store.get_nodes.return_value = [note]
+
+    tool = create_get_note_tool(graph_store, "graph-1")
+    result = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"note_id": "note-1"}))
+
+    assert result.version == note_version(note)
+
+
+@pytest.mark.asyncio
+async def test_edit_note_refuses_stale_expected_version() -> None:
+    """A stale expected_version blocks the edit so the user's change survives."""
+    graph_store = DummyGraphStore()
+    graph_store.get_nodes.return_value = [_note("the quick red fox")]
+
+    tool = create_edit_note_tool(graph_store, "graph-1")
+    stale = note_version(_note("the quick fox"))
+    result = await tool.on_invoke_tool(
+        _make_tool_ctx(),
+        json.dumps({"note_id": "note-1", "field": "content", "old": "quick", "new": "slow", "expected_version": stale}),
+    )
+
+    assert isinstance(result, str)
+    assert "changed since you read it" in result
+    graph_store.patch_note.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_write_note_rewrite_accepts_current_version_and_refuses_stale() -> None:
+    """write_note(note_id=...) applies with the current version and refuses a stale one."""
+    graph_store = DummyGraphStore()
+    current = _note("user text")
+    graph_store.get_nodes.return_value = [current]
+    graph_store.patch_note.return_value = current
+    tool = create_write_note_tool(graph_store, "graph-1")
+
+    refused = await tool.on_invoke_tool(
+        _make_tool_ctx(),
+        json.dumps({"note_id": "note-1", "content": "agent copy", "expected_version": "000000000000"}),
+    )
+    assert isinstance(refused, str)
+    assert "changed since you read it" in refused
+    graph_store.patch_note.assert_not_awaited()
+
+    applied = await tool.on_invoke_tool(
+        _make_tool_ctx(),
+        json.dumps({"note_id": "note-1", "content": "agent copy", "expected_version": note_version(current)}),
+    )
+    assert applied.action == "rewritten"
+    graph_store.patch_note.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_note_deletes_scoped_note() -> None:
+    """delete_note removes a plain note on the current board."""
+    graph_store = DummyGraphStore()
+    graph_store.delete_node = AsyncMock()
+    graph_store.get_nodes.return_value = [_note()]
+
+    tool = create_delete_note_tool(graph_store, "graph-1")
+    result = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"note_id": "note-1"}))
+
+    assert result.type == "delete_note"
+    graph_store.delete_node.assert_awaited_once_with("note-1")
+
+
+@pytest.mark.asyncio
+async def test_delete_note_refuses_folders() -> None:
+    """Folders cascade their subtree, so the agent must leave them to the user."""
+    graph_store = DummyGraphStore()
+    graph_store.delete_node = AsyncMock()
+    graph_store.get_nodes.return_value = [_note(style=Style(type=NodeType.FOLDER))]
+
+    tool = create_delete_note_tool(graph_store, "graph-1")
+    result = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"note_id": "note-1"}))
+
+    assert isinstance(result, str)
+    assert "can't delete a folder" in result
+    graph_store.delete_node.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_move_note_patches_position_only() -> None:
+    """move_note sends a position-only patch (embed-skip path, content untouched)."""
+    graph_store = DummyGraphStore()
+    note = _note()
+    graph_store.get_nodes.return_value = [note]
+    graph_store.patch_note.return_value = note
+
+    tool = create_move_note_tool(graph_store, "graph-1")
+    result = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"note_id": "note-1", "x": 40, "y": 80}))
+
+    assert result.type == "move_note"
+    assert (result.x, result.y) == (40, 80)
+    graph_store.patch_note.assert_awaited_once_with(
+        "note-1", {"properties": {"node_position": {"position": {"x": 40, "y": 80}}}},
+    )
+
+
+@pytest.mark.asyncio
+async def test_unlink_notes_deletes_scoped_link_and_rejects_foreign() -> None:
+    """unlink_notes removes a link on this board and refuses one from another board."""
+    graph_store = DummyGraphStore()
+    graph_store.delete_link = AsyncMock()
+    graph_store.get_links = AsyncMock(return_value=[Link(id="link-1", source="a", target="b", graph_uid="graph-1")])
+    tool = create_unlink_notes_tool(graph_store, "graph-1")
+
+    result = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"link_id": "link-1"}))
+    assert result.type == "unlink_notes"
+    graph_store.delete_link.assert_awaited_once_with("link-1")
+
+    graph_store.get_links.return_value = [Link(id="link-2", source="a", target="b", graph_uid="other")]
+    foreign = await tool.on_invoke_tool(_make_tool_ctx(), json.dumps({"link_id": "link-2"}))
+    assert isinstance(foreign, str)
+    assert "does not belong" in foreign

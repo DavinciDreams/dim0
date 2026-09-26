@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from typing import Literal
 
 from agents import FunctionTool, RunContextWrapper
@@ -9,9 +12,12 @@ from agents import FunctionTool, RunContextWrapper
 from topix.agents.datatypes.context import Context
 from topix.agents.datatypes.outputs import (
     CreateNoteOutput,
+    DeleteNoteOutput,
     EditNoteOutput,
     GetNoteOutput,
     LinkNotesOutput,
+    MoveNoteOutput,
+    UnlinkNotesOutput,
     WriteNoteOutput,
 )
 from topix.agents.datatypes.tools import AgentToolName
@@ -24,6 +30,7 @@ from topix.agents.notes.service import (
 from topix.agents.tool_handler import ToolHandler
 from topix.collab.agent_bridge import AgentBoardBridge
 from topix.datatypes.note.link import Link
+from topix.datatypes.note.note import Note
 from topix.datatypes.note.style import NodeType
 from topix.datatypes.property import SizeProperty
 from topix.datatypes.resource import RichText
@@ -73,6 +80,44 @@ async def _validate_mini_app_content(content: str) -> None:
     raise ValueError(" ".join(parts))
 
 
+_VERSION_HEX_CHARS = 12
+
+
+def note_version(note: Note) -> str:
+    """Content version of a note: first 12 hex chars of SHA-256 over [type, label, content].
+
+    Covers only the fields an agent write can clobber, so a user moving or
+    resizing a note never invalidates a version the agent is holding.
+    """
+    label = note.label.markdown if note.label else ""
+    content = note.content.markdown if note.content else ""
+    payload = json.dumps([str(note.style.type), label, content], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:_VERSION_HEX_CHARS]
+
+
+def _check_expected_version(note: Note, expected_version: str | None) -> None:
+    """Raise when `expected_version` is given and the note has changed since it was read."""
+    if not expected_version:
+        return
+    current = note_version(note)
+    if current != expected_version:
+        raise ValueError(
+            f"Note {note.id} changed since you read it (expected version {expected_version}, current {current}). "
+            "Re-read it with get_note, then retry against the current content."
+        )
+
+
+async def _get_scoped_note(graph_store: GraphStore, graph_uid: str, note_id: str) -> Note:
+    """Fetch a note by id, raising unless it exists on the current board."""
+    existing_notes = await graph_store.get_nodes([note_id])
+    if not existing_notes:
+        raise ValueError(f"Note {note_id} was not found.")
+    note = existing_notes[0]
+    if note.graph_uid != graph_uid:
+        raise ValueError("Note does not belong to the current board scope.")
+    return note
+
+
 def create_write_note_tool(  # noqa: C901 — branching is the whole job (create vs rewrite, sheet-resize, mini-app-validate); splitting would scatter cohesive logic
     graph_store: GraphStore,
     graph_uid: str,
@@ -92,6 +137,7 @@ def create_write_note_tool(  # noqa: C901 — branching is the whole job (create
         label: str | None = None,
         note_type: NodeType = NodeType.RECTANGLE,
         note_id: str | None = None,
+        expected_version: str | None = None,
     ) -> WriteNoteOutput:
         """Create a new note or fully rewrite an existing note in the current board scope.
 
@@ -108,6 +154,8 @@ def create_write_note_tool(  # noqa: C901 — branching is the whole job (create
             label (str | None): Optional short title stored separately from the main body.
             note_type (NodeType): Visual note type to use after the write.
             note_id (str | None): Optional existing note id. Omit to create a new note.
+            expected_version (str | None): The `version` get_note returned for `note_id`. If the
+                note changed since, the rewrite is refused so the user's edit isn't overwritten.
 
         """
         _reject_unsupported_note_type(note_type)
@@ -140,40 +188,36 @@ def create_write_note_tool(  # noqa: C901 — branching is the whole job (create
                 parent_id=root_id,
             )
 
-        existing_notes = await graph_store.get_nodes([note_id])
-        if not existing_notes:
-            raise ValueError(f"Note {note_id} was not found.")
+        async with graph_store.note_lock(note_id):
+            existing_note = await _get_scoped_note(graph_store, graph_uid, note_id)
+            _check_expected_version(existing_note, expected_version)
 
-        existing_note = existing_notes[0]
-        if existing_note.graph_uid != graph_uid:
-            raise ValueError("Note does not belong to the current board scope.")
+            patch: dict = {
+                "label": {"markdown": label} if label is not None else None,
+                "content": {"markdown": content},
+                "style": {"type": note_type},
+            }
+            if note_type != existing_note.style.type and note_type == NodeType.SHEET:
+                existing_size = existing_note.properties.node_size.size
+                needs_seed = (
+                    existing_size is None
+                    or existing_size.width < SHEET_MIN_WIDTH
+                    or existing_size.height < SHEET_MIN_HEIGHT
+                )
+                if needs_seed:
+                    width, height = get_default_note_size(note_type)
+                    patch.setdefault("properties", {})["node_size"] = SizeProperty(
+                        size=SizeProperty.Size(width=width, height=height)
+                    ).model_dump()
 
-        patch: dict = {
-            "label": {"markdown": label} if label is not None else None,
-            "content": {"markdown": content},
-            "style": {"type": note_type},
-        }
-        if note_type != existing_note.style.type and note_type == NodeType.SHEET:
-            existing_size = existing_note.properties.node_size.size
-            needs_seed = (
-                existing_size is None
-                or existing_size.width < SHEET_MIN_WIDTH
-                or existing_size.height < SHEET_MIN_HEIGHT
-            )
-            if needs_seed:
-                width, height = get_default_note_size(note_type)
-                patch.setdefault("properties", {})["node_size"] = SizeProperty(
-                    size=SizeProperty.Size(width=width, height=height)
-                ).model_dump()
-
-        if agent_bridge is not None:
-            updated_note = await agent_bridge.patch_note(
-                board_id=graph_uid, node_id=note_id, data=patch, user_uid=None,
-            )
-        else:
-            updated_note = await graph_store.patch_note(note_id, patch)
-        if updated_note is None:
-            raise ValueError(f"Note {note_id} was not found.")
+            if agent_bridge is not None:
+                updated_note = await agent_bridge.patch_note(
+                    board_id=graph_uid, node_id=note_id, data=patch, user_uid=None,
+                )
+            else:
+                updated_note = await graph_store.patch_note(note_id, patch)
+            if updated_note is None:
+                raise ValueError(f"Note {note_id} was not found.")
 
         return WriteNoteOutput(
             action="rewritten",
@@ -265,6 +309,7 @@ def create_edit_note_tool(
         old: str,
         new: str,
         replace_all: bool = False,
+        expected_version: str | None = None,
     ) -> EditNoteOutput:
         """Apply a targeted text edit to a note field by anchoring on a unique substring.
 
@@ -284,6 +329,8 @@ def create_edit_note_tool(
             new (str): Replacement text for the matched substring.
             replace_all (bool): When true, replace every occurrence of `old`. Reserve for
                 renames or repeated tokens you want changed everywhere.
+            expected_version (str | None): The `version` get_note returned for this note. If the
+                note changed since, the edit is refused so the user's edit isn't overwritten.
 
         """
         if old == "":
@@ -293,13 +340,8 @@ def create_edit_note_tool(
             )
 
         async with graph_store.note_lock(note_id):
-            existing_notes = await graph_store.get_nodes([note_id])
-            if not existing_notes:
-                raise ValueError(f"Note {note_id} was not found.")
-
-            existing_note = existing_notes[0]
-            if existing_note.graph_uid != graph_uid:
-                raise ValueError("Note does not belong to the current board scope.")
+            existing_note = await _get_scoped_note(graph_store, graph_uid, note_id)
+            _check_expected_version(existing_note, expected_version)
 
             if field == "label":
                 current_value = existing_note.label.markdown if existing_note.label is not None else ""
@@ -368,21 +410,16 @@ def create_get_note_tool(
             note_id (str): Exact id of the note to fetch.
 
         """
-        existing_notes = await graph_store.get_nodes([note_id])
-        if not existing_notes:
-            raise ValueError(f"Note {note_id} was not found.")
-
-        note = existing_notes[0]
-        if note.graph_uid != graph_uid:
-            raise ValueError("Note does not belong to the current board scope.")
+        note = await _get_scoped_note(graph_store, graph_uid, note_id)
 
         return GetNoteOutput(
             note_id=note.id,
-            graph_uid=note.graph_uid,
+            graph_uid=graph_uid,
             label=note.label.markdown if note.label else None,
             content=note.content.markdown if note.content else "",
             note_type=note.style.type,
             parent_id=note.parent_id,
+            version=note_version(note),
         )
 
     return ToolHandler.convert_func_to_tool(
@@ -462,5 +499,155 @@ def create_link_notes_tool(
     return ToolHandler.convert_func_to_tool(
         link_notes,
         tool_name=AgentToolName.LINK_NOTES,
+        tool_description=None,
+    )
+
+
+# Node types whose delete isn't losslessly undoable (a folder's subtree cascades;
+# a document owns chunks) — mirrors the browser's DURABLE_DELETE. Left to the user.
+_AGENT_UNDELETABLE_NOTE_TYPES: frozenset[NodeType] = frozenset({NodeType.FOLDER})
+
+
+def create_delete_note_tool(
+    graph_store: GraphStore,
+    graph_uid: str,
+    agent_bridge: AgentBoardBridge | None = None,
+) -> FunctionTool:
+    """Build a delete-note tool bound to the current board scope.
+
+    Routes through `agent_bridge` when supplied so live peers receive the
+    `node.remove` as a system `peer-op`.
+    """
+
+    async def delete_note(
+        _wrapper: RunContextWrapper[Context],
+        note_id: str,
+        expected_version: str | None = None,
+    ) -> DeleteNoteOutput:
+        """Delete a note and the links attached to it from the current board.
+
+        Only delete when the user asked for it, or to remove a note you created by mistake.
+        Folders and documents can't be deleted with this tool; ask the user to delete them.
+
+        Args:
+            note_id (str): Exact id of the note to delete.
+            expected_version (str | None): The `version` get_note returned for this note. If the
+                note changed since, the delete is refused.
+
+        """
+        async with graph_store.note_lock(note_id):
+            note = await _get_scoped_note(graph_store, graph_uid, note_id)
+            if note.type == "document" or note.style.type in _AGENT_UNDELETABLE_NOTE_TYPES:
+                kind = "document" if note.type == "document" else note.style.type
+                raise ValueError(f"delete_note can't delete a {kind}; ask the user to delete it themselves.")
+            _check_expected_version(note, expected_version)
+
+            if agent_bridge is not None:
+                await agent_bridge.delete_node(board_id=graph_uid, node_id=note_id, user_uid=None)
+            else:
+                await graph_store.delete_node(note_id)
+
+        return DeleteNoteOutput(note_id=note_id, graph_uid=graph_uid)
+
+    return ToolHandler.convert_func_to_tool(
+        delete_note,
+        tool_name=AgentToolName.DELETE_NOTE,
+        tool_description=None,
+    )
+
+
+def create_move_note_tool(
+    graph_store: GraphStore,
+    graph_uid: str,
+    agent_bridge: AgentBoardBridge | None = None,
+) -> FunctionTool:
+    """Build a move-note tool bound to the current board scope.
+
+    Patches only `properties.node_position`, so it takes the embed-skip fast
+    path and never touches the note's content.
+    """
+
+    async def move_note(
+        _wrapper: RunContextWrapper[Context],
+        note_id: str,
+        x: float,
+        y: float,
+    ) -> MoveNoteOutput:
+        """Move an existing note to an explicit canvas position (its top-left corner).
+
+        Use when the user asks to reposition or regroup notes. Notes you create this turn are
+        arranged automatically, so there's no need to move them.
+
+        Args:
+            note_id (str): Exact id of the note to move.
+            x (float): New x canvas position.
+            y (float): New y canvas position.
+
+        """
+        await _get_scoped_note(graph_store, graph_uid, note_id)
+        patch: dict = {"properties": {"node_position": {"position": {"x": x, "y": y}}}}
+        if agent_bridge is not None:
+            moved = await agent_bridge.patch_note(board_id=graph_uid, node_id=note_id, data=patch, user_uid=None)
+        else:
+            moved = await graph_store.patch_note(note_id, patch)
+        if moved is None:
+            raise ValueError(f"Note {note_id} was not found.")
+
+        return MoveNoteOutput(
+            note_id=note_id,
+            graph_uid=graph_uid,
+            x=x,
+            y=y,
+            label=moved.label.markdown if moved.label else None,
+            note_type=moved.style.type,
+            parent_id=moved.parent_id,
+        )
+
+    return ToolHandler.convert_func_to_tool(
+        move_note,
+        tool_name=AgentToolName.MOVE_NOTE,
+        tool_description=None,
+    )
+
+
+def create_unlink_notes_tool(
+    graph_store: GraphStore,
+    graph_uid: str,
+    agent_bridge: AgentBoardBridge | None = None,
+) -> FunctionTool:
+    """Build an unlink-notes tool bound to the current board scope.
+
+    Routes through `agent_bridge` when supplied so live peers receive the
+    `edge.remove` as a system `peer-op`.
+    """
+
+    async def unlink_notes(
+        _wrapper: RunContextWrapper[Context],
+        link_id: str,
+    ) -> UnlinkNotesOutput:
+        """Remove a link between two notes by its id (as returned by link_notes).
+
+        Only remove links when the user asked for it, or to undo a link you drew by mistake.
+
+        Args:
+            link_id (str): Exact id of the link to remove.
+
+        """
+        links = await graph_store.get_links([link_id])
+        if not links:
+            raise ValueError(f"Link {link_id} was not found.")
+        if links[0].graph_uid != graph_uid:
+            raise ValueError("Link does not belong to the current board scope.")
+
+        if agent_bridge is not None:
+            await agent_bridge.delete_link(board_id=graph_uid, link_id=link_id)
+        else:
+            await graph_store.delete_link(link_id)
+
+        return UnlinkNotesOutput(link_id=link_id, graph_uid=graph_uid)
+
+    return ToolHandler.convert_func_to_tool(
+        unlink_notes,
+        tool_name=AgentToolName.UNLINK_NOTES,
         tool_description=None,
     )

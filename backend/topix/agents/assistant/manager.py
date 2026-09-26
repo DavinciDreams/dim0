@@ -10,7 +10,13 @@ from topix.agents.assistant.auto_model import classify_auto_model_complexity
 from topix.agents.assistant.plan import Plan
 from topix.agents.config import AssistantManagerConfig
 from topix.agents.datatypes.context import ReasoningContext
-from topix.agents.datatypes.outputs import CreateNoteOutput, LinkNotesOutput, WriteNoteOutput
+from topix.agents.datatypes.outputs import (
+    CreateNoteOutput,
+    DeleteNoteOutput,
+    LinkNotesOutput,
+    UnlinkNotesOutput,
+    WriteNoteOutput,
+)
 from topix.agents.datatypes.reasoning_step import ReasoningStep
 from topix.agents.datatypes.stream import (
     AgentStreamMessage,
@@ -166,7 +172,8 @@ class AssistantManager:
             return []
 
         created: list[str] = []
-        seen: set[str] = set()
+        # Seeding with this turn's deletions skips notes created then removed.
+        seen: set[str] = self._removed_ids(context, DeleteNoteOutput, "note_id")
         for call in context.tool_calls:
             if call.state != ToolCallState.COMPLETED:
                 continue
@@ -187,13 +194,23 @@ class AssistantManager:
             created.append(output.note_id)
         return created
 
+    def _removed_ids(self, context: ReasoningContext, output_cls: type, attr: str) -> set[str]:
+        """Ids this turn removed on the current board (completed `output_cls` calls)."""
+        return {
+            getattr(call.output, attr)
+            for call in context.tool_calls
+            if call.state == ToolCallState.COMPLETED
+            and isinstance(call.output, output_cls)
+            and getattr(call.output, "graph_uid", None) == self.graph_uid
+        }
+
     def _collect_created_link_ids(self, context: ReasoningContext) -> list[str]:
         """Pick link ids that this turn just created, in first-seen order."""
         if self.graph_uid is None:
             return []
 
         created: list[str] = []
-        seen: set[str] = set()
+        seen: set[str] = self._removed_ids(context, UnlinkNotesOutput, "link_id")
         for call in context.tool_calls:
             if call.state != ToolCallState.COMPLETED:
                 continue
