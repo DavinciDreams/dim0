@@ -10,7 +10,6 @@ import {
   GraphViewIcon,
   GridViewIcon,
   HandGrabIcon,
-  HandPanIcon,
   InkPenIcon,
   LayerStackIcon,
   ListViewIcon,
@@ -321,47 +320,38 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
       */}
       {isBoard && (
       <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => setTool("pan")}
-            aria-label="Pan"
-            aria-pressed={isPan}
-            className={isPan ? activeClass : inactiveClass}
-          >
-            <div className="relative">
-              {isPan ? (
-                <HandGrabIcon className="size-4 shrink-0" weight="fill" />
-              ) : (
-                <HandPanIcon className="size-4 shrink-0" />
-              )}
-              <ShortcutHint shortcut="P" />
-            </div>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={10}>Pan</TooltipContent>
-      </Tooltip>
-
+      {/*
+        One navigation tool: with Select, dragging empty canvas pans and
+        Shift+drag box-selects (use-drag-to-pan). The hand tool stays on the
+        P/H shortcut and shows here only while it's active.
+      */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
             onClick={() => setTool("select")}
             aria-label="Select"
-            aria-pressed={isSelect}
-            className={isSelect ? activeClass : inactiveClass}
+            aria-pressed={isSelect || isPan}
+            className={isSelect || isPan ? activeClass : inactiveClass}
           >
             <div className="relative">
-              <CursorSelectIcon
-                className="size-4 shrink-0"
-                weight={isSelect ? "fill" : undefined}
-              />
+              {isPan ? (
+                <HandGrabIcon className="size-4 shrink-0" weight="fill" />
+              ) : (
+                <CursorSelectIcon
+                  className="size-4 shrink-0"
+                  weight={isSelect ? "fill" : undefined}
+                />
+              )}
               <ShortcutHint shortcut="V" />
             </div>
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={10}>Select</TooltipContent>
+        <TooltipContent side="bottom" sideOffset={10} className="text-center">
+          Select · drag empty space to pan
+          <br />
+          Shift+drag to box-select · scroll to pan · Ctrl+scroll to zoom
+        </TooltipContent>
       </Tooltip>
 
       {/* Creation tools: hidden for viewers, whose edits the server rejects. */}

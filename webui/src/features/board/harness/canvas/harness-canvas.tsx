@@ -82,6 +82,7 @@ import { useThumbnailCapture } from "./use-thumbnail-capture"
 import { useViewportPersistence } from "./use-viewport-persistence"
 import { useTrackBoardCameraMotion } from "./board-camera-motion"
 import { useSidebarContentsSync } from "./use-sidebar-contents-sync"
+import { useDragToPan } from "./use-drag-to-pan"
 import { HarnessWrapRefProvider } from "./wrap-ref-provider"
 
 
@@ -372,6 +373,12 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
     },
   }
   const { onDragOver, onDrop } = useHarnessDropFiles(wrapRef, store, boardId, rootId, canEdit)
+  // Viewers only navigate: a create/ink/eraser tool picked via a shortcut would
+  // draw locally and be rejected by the server, so pin them to select.
+  const canvasTool = canEdit || tool === "pan" ? tool : "select"
+  // With Select, dragging empty canvas pans (Shift+drag box-selects) — no Pan tool needed.
+  const presentationMode = useBoardAppStore((s) => s.presentationMode)
+  useDragToPan(wrapRef, store, canvasTool === "select" && viewMode === "board" && !presentationMode)
   const navigate = useNavigate()
 
   // Double-click dispatch.
@@ -559,9 +566,7 @@ export function HarnessCanvas({ local = false }: { local?: boolean } = {}) {
         >
           <HarnessCanvasInner
             theme={theme}
-            // Viewers only navigate: a create/ink/eraser tool picked via a shortcut
-            // would draw locally and be rejected by the server, so pin them to select.
-            tool={canEdit || tool === "pan" ? tool : "select"}
+            tool={canvasTool}
             ready={ready}
             viewMode={viewMode}
             canCollab={!local}
