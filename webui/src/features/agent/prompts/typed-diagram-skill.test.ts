@@ -5,7 +5,8 @@ import { renderDiagramSource } from "@/features/diagram/render"
 import { SKILLS } from "./index"
 
 
-const jsonBlocks = (md: string): string[] => [...md.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1])
+// `\r?\n`: Windows checkouts with core.autocrlf read the skill with CRLF endings.
+const jsonBlocks = (md: string): string[] => [...md.matchAll(/```json\r?\n([\s\S]*?)```/g)].map((m) => m[1])
 
 
 describe("learn_generate_architecture_diagram skill", () => {
