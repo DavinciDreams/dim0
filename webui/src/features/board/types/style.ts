@@ -28,6 +28,7 @@ export type NodeType =
   | "widget"
   | "mini-app"
   | "applet"
+  | "diagram"
   | "ink"
 
 /**
@@ -338,6 +339,7 @@ export const createDefaultStyle = ({
     case "widget":
     case "mini-app":
     case "applet":
+    case "diagram":
       return {
         ...defaultOptions,
         roughness: 0,

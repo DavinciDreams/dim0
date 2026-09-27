@@ -6,7 +6,10 @@ without Postgres/Qdrant.
 
 import math
 
+import pytest
+
 from topix.collab.apply_ops import RAD_TO_DEG, WireOpResult, apply_batch, batch_had_persist_failure, should_reject_batch
+from topix.collab.note_to_wire import note_to_wire_node
 
 
 class _RecordingGraphStore:
@@ -620,6 +623,43 @@ async def test_node_add_applet_without_style_type_is_not_a_rectangle():
     assert results[0].applied is True
     [note] = store.add_notes_calls[0]
     assert note.style.type == "applet"
+
+
+_DIAGRAM_SPEC = '{\n  "diagram_type": "architecture",\n  "meta": { "title": "Web" },\n  "components": []\n}'
+
+
+@pytest.mark.parametrize("data", [
+    {"noteType": "note", "styleType": "diagram", "version": 1},
+    {"noteType": "note", "version": 1},
+])
+async def test_diagram_note_round_trips_through_the_wire(data):
+    """A synced `diagram` add persists as `diagram` and goes back out unchanged.
+
+    The spec JSON in `content` must survive verbatim, the type must not fall
+    back to `rectangle` (with or without `data.styleType`), and the outbound
+    wire node must keep lib autoFit off like the other preview types.
+    """
+    store = _RecordingGraphStore()
+    op = {
+        "type": "node.add",
+        "node": {
+            "id": "d1", "type": "diagram",
+            "x": 10, "y": 20, "w": 720, "h": 440, "z": 0, "angle": 0,
+            "content": _DIAGRAM_SPEC,
+            "data": data,
+        },
+    }
+
+    results = await apply_batch(graph_store=store, board_id="b1", user_id="u1", ops=[op])
+
+    assert results[0].applied is True
+    [note] = store.add_notes_calls[0]
+    assert note.style.type == "diagram"
+    assert note.content.markdown == _DIAGRAM_SPEC
+    wire = note_to_wire_node(note)
+    assert wire["type"] == "diagram"
+    assert wire["content"] == _DIAGRAM_SPEC
+    assert wire["style"]["autoFit"] is False
 
 
 async def test_node_add_persists_style_roundness_from_wire():

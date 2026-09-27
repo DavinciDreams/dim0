@@ -35,6 +35,7 @@ export const AUTOFIT_DISABLED_TYPES = new Set([
   "widget",
   "mini-app",
   "applet",
+  "diagram",
   "document",
   // Ink has no text `content`; autoFit would snap its height to an empty
   // measure and collapse the stroke's bounds.

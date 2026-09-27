@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { AppletChart } from "./chart/applet-chart"
+import { CodeBlock, JsonViewer, Latex, Markdown, Mermaid, ProgressTracker, Stats, Timeline } from "./generous"
 import { Table } from "./table"
 
 
@@ -28,4 +29,12 @@ export const COMPONENT_IMPLS = {
   Graph: GraphElement,
   Map: MapElement,
   Table,
+  Mermaid,
+  Latex,
+  Markdown,
+  CodeBlock,
+  JsonViewer,
+  Stats,
+  ProgressTracker,
+  Timeline,
 } as unknown as Record<string, AnyComponent>

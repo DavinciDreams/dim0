@@ -15,8 +15,11 @@ import { useBoardAppStore } from "@/features/board/harness/store/board-app-store
 import { getAgentBridge } from "@/features/board/harness/agent/agent-bridge"
 import type {
   CreateNoteOutput,
+  DeleteNoteOutput,
   EditNoteOutput,
   LinkNotesOutput,
+  MoveNoteOutput,
+  UnlinkNotesOutput,
   WriteNoteOutput,
 } from "../types/tool-outputs"
 import { isReasoningTextStep, isToolCallStep, normalizeReasoningSteps } from "../types/stream"
@@ -257,10 +260,13 @@ export const useSendMessage = () => {
           : undefined
 
         const reasoningSteps = completedMessage?.properties.reasoning?.reasoning ?? []
-        const noteToolOutputs = collectNoteToolOutputs(reasoningSteps)
-        const linkToolOutputs = collectLinkToolOutputs(reasoningSteps)
+        const removalToolOutputs = collectRemovalToolOutputs(reasoningSteps)
+        // Skip re-fetching anything this turn went on to remove (it would 404).
+        const removedIds = new Set(removalToolOutputs.map((o) => (o.type === "delete_note" ? o.noteId : o.linkId)))
+        const noteToolOutputs = collectNoteToolOutputs(reasoningSteps).filter((o) => !removedIds.has(o.noteId))
+        const linkToolOutputs = collectLinkToolOutputs(reasoningSteps).filter((o) => !removedIds.has(o.linkId))
 
-        if (noteToolOutputs.length > 0 || linkToolOutputs.length > 0) {
+        if (noteToolOutputs.length > 0 || linkToolOutputs.length > 0 || removalToolOutputs.length > 0) {
           const activeBoardId = useBoardAppStore.getState().boardId
           // Apply outputs through the canvas-harness bridge: re-fetches
           // each note/link from the server (canonical state), updates
@@ -280,6 +286,9 @@ export const useSendMessage = () => {
             }
             for (const output of linkToolOutputs) {
               await harnessBridge.applyLinkOutput(output)
+            }
+            for (const output of removalToolOutputs) {
+              harnessBridge.applyRemovalOutput(output)
             }
 
             if (
@@ -362,14 +371,28 @@ const sanitizeToolOutput = (output: ToolOutput): ToolOutput => {
   }
 }
 
-const collectNoteToolOutputs = (steps: ReasoningStep[]): Array<WriteNoteOutput | CreateNoteOutput | EditNoteOutput> =>
+type NoteToolOutputs = WriteNoteOutput | CreateNoteOutput | EditNoteOutput | MoveNoteOutput
+
+
+const collectNoteToolOutputs = (steps: ReasoningStep[]): NoteToolOutputs[] =>
   steps.flatMap((step) => {
     if (!isToolCallStep(step)) return []
     if (
-      (step.name === "write_note" || step.name === "create_note" || step.name === "edit_note") &&
+      (step.name === "write_note" || step.name === "create_note" || step.name === "edit_note" || step.name === "move_note") &&
       typeof step.output !== "string"
     ) {
-      return [step.output as WriteNoteOutput | CreateNoteOutput | EditNoteOutput]
+      return [step.output as NoteToolOutputs]
+    }
+    return []
+  })
+
+
+/** Note deletions + link removals the server agent made this turn, in order. */
+const collectRemovalToolOutputs = (steps: ReasoningStep[]): Array<DeleteNoteOutput | UnlinkNotesOutput> =>
+  steps.flatMap((step) => {
+    if (!isToolCallStep(step) || typeof step.output === "string") return []
+    if (step.name === "delete_note" || step.name === "unlink_notes") {
+      return [step.output as DeleteNoteOutput | UnlinkNotesOutput]
     }
     return []
   })

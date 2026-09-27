@@ -22,6 +22,10 @@ Boards work with no account, persist to IndexedDB, and are fully usable offline 
 
 The agent authors real interactive React (JSX) that runs as a node: sucrase-compiled and mounted in a **sandboxed iframe**, with a minimal `postMessage` RPC (`initialState`/`saveState`/`toast`). Security is the iframe sandbox + origin split, not the compiler. Entries: `webui/mini-app-runtime/` (iframe), `webui/src/features/mini-app/` (host), `backend/topix/mini_app/compile.py` (validation).
 
+## Typed diagrams
+
+A **diagram** node renders a typed JSON spec (`architecture`, `sequence`, or swimlane `workflow`) as a color-coded SVG, using renderers vendored from [Archify](https://github.com/tt-a1i/archify) (MIT). Authors describe *what* is in the diagram; layout is automatic (grid `row`/`col` or a dagre pass over the connections for architecture, even spacing for sequence messages). Specs are zod-validated, the SVG is DOMPurify-sanitized, and the renderer chunk loads lazily on first render. The browser agent authors them via `learn_generate_architecture_diagram` + `write_note(note_type="diagram")`, getting field-level errors back on a bad spec. Entries: `webui/src/features/diagram/`, `webui/src/features/board/harness/node-types/diagram/`.
+
 ## Document Q&A
 
 Upload a PDF, ask grounded questions. OCR'd online (Mistral via `/ai/parse`), then chunked + indexed **offline** (per-board Orama BM25, no vector store), retrieved by a `doc_search` tool with per-answer citations. Entries: `webui/src/features/agent/engine/doc-{parse,chunk,search}.ts`, `features/board/search/doc-index.ts`.

@@ -84,6 +84,8 @@ export {
   LearnWidgetIcon,
   LinkIcon,
   LinksIcon,
+  MoveNoteIcon,
+  UnlinkIcon,
   LayoutIcon,
   LayerStackIcon,
   ListViewIcon,

@@ -2,6 +2,7 @@ import type { AppIconComponent } from "@/components/icons"
 import {
   BrowserSearchIcon,
   CreateNoteIcon,
+  DeleteIcon,
   EditNoteIcon,
   FolderIcon,
   FolderPlusActionIcon,
@@ -10,6 +11,7 @@ import {
   DocumentFileIcon,
   LinkIcon,
   MemorySearchIcon,
+  MoveNoteIcon,
   NoteIcon,
   OutlineGeneratorIcon,
   ReadNoteIcon,
@@ -17,6 +19,7 @@ import {
   StockWidgetIcon,
   ToolCodeIcon,
   TreeMapIcon,
+  UnlinkIcon,
   WeatherWidgetIcon,
   WebCollectorIcon,
   WriteNoteToolIcon,
@@ -114,6 +117,9 @@ export type ToolName =
   | "edit_note"
   | "get_note"
   | "link_notes"
+  | "delete_note"
+  | "move_note"
+  | "unlink_notes"
   | "arrange_notes"
   | "navigate"
   | "create_folder"
@@ -132,6 +138,7 @@ export type ToolName =
   | "learn_generate_html_widget"
   | "learn_generate_applet"
   | "learn_generate_diagram"
+  | "learn_generate_architecture_diagram"
 
 
 export const ToolNameDescription: Record<ToolName, string> = {
@@ -144,6 +151,9 @@ export const ToolNameDescription: Record<ToolName, string> = {
   edit_note: "Edit note",
   get_note: "Read note",
   link_notes: "Link notes",
+  delete_note: "Delete note",
+  move_note: "Move note",
+  unlink_notes: "Unlink notes",
   arrange_notes: "Arrange notes",
   navigate: "Open folder",
   create_folder: "Create folder",
@@ -162,6 +172,7 @@ export const ToolNameDescription: Record<ToolName, string> = {
   learn_generate_html_widget: "Learn widget and visual explainer skill",
   learn_generate_applet: "Learn interactive applet skill",
   learn_generate_diagram: "Learn mindmap and diagram skill",
+  learn_generate_architecture_diagram: "Learn architecture and sequence diagram skill",
 }
 
 
@@ -183,6 +194,9 @@ export const ToolNameIcon: Record<ToolName, AppIconComponent> = {
   edit_note: EditNoteIcon,
   get_note: ReadNoteIcon,
   link_notes: LinkIcon,
+  delete_note: DeleteIcon,
+  move_note: MoveNoteIcon,
+  unlink_notes: UnlinkIcon,
   arrange_notes: TreeMapIcon,
   navigate: FolderIcon,
   create_folder: FolderPlusActionIcon,
@@ -195,6 +209,7 @@ export const ToolNameIcon: Record<ToolName, AppIconComponent> = {
   learn_generate_html_widget: ScrollIcon,
   learn_generate_applet: ScrollIcon,
   learn_generate_diagram: ScrollIcon,
+  learn_generate_architecture_diagram: ScrollIcon,
 }
 
 

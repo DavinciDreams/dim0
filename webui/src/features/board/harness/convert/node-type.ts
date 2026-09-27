@@ -35,6 +35,7 @@ const DIM0_TO_CANVAS: Record<Dim0NodeType, CanvasNodeType> = {
   widget: "widget",
   "mini-app": "mini-app",
   applet: "applet",
+  diagram: "diagram",
   // Built-in in canvas-harness 0.2.0 — 1:1 name.
   ink: "ink",
 }

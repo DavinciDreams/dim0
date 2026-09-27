@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from datetime import datetime
 from typing import Literal
 
 import asyncpg
@@ -396,6 +397,17 @@ class GraphStore:
             await self._content_store.add([restored_note])
 
         return restored_note
+
+    async def list_note_revisions(self, node_id: str) -> list[tuple[str, datetime, Note]]:
+        """Return a note's saved revisions, newest first, as (revision_id, created_at, note).
+
+        Read-only: unlike `restore_latest_note_revision` nothing is popped or written, so a
+        client can preview a revision and re-apply it through its normal (synced) edit path.
+        """
+        if self._note_revision_store is None:
+            return []
+        records = await self._note_revision_store.list_note_revisions(node_id)
+        return [(r.id, r.created_at, deserialize_note_snapshot(r.compression, r.snapshot_compressed)) for r in records]
 
     async def get_nodes(self, node_ids: list[str]) -> list[Note]:
         """Retrieve nodes by their IDs."""

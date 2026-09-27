@@ -58,6 +58,7 @@ IDENTITY = [
     (NodeType.CODE_SANDBOX, "code-sandbox"),
     (NodeType.WIDGET, "widget"),
     (NodeType.APPLET, "applet"),
+    (NodeType.DIAGRAM, "diagram"),
 ]
 
 
@@ -285,6 +286,7 @@ AUTOFIT_DISABLED = [
     NodeType.WIDGET,
     NodeType.MINI_APP,
     NodeType.APPLET,
+    NodeType.DIAGRAM,
 ]
 
 

@@ -49,6 +49,7 @@ _DIM0_TO_CANVAS_TYPE: dict[str, str] = {
     "widget": "widget",
     "mini-app": "mini-app",
     "applet": "applet",
+    "diagram": "diagram",
     # Identity — built-in in canvas-harness 0.2.0.
     "ink": "ink",
 }
@@ -66,7 +67,7 @@ _CANVAS_TO_DIM0_TYPE: dict[str, str] = {v: k for k, v in _DIM0_TO_CANVAS_TYPE.it
 # IMPORTANT: keep in sync with webui/.../convert/note-to-node.ts
 # (`AUTOFIT_DISABLED_TYPES`).
 _AUTOFIT_DISABLED_CANVAS_TYPES: frozenset[str] = frozenset({
-    "folder", "sheet", "code-sandbox", "widget", "mini-app", "applet", "document", "ink",
+    "folder", "sheet", "code-sandbox", "widget", "mini-app", "applet", "diagram", "document", "ink",
 })
 
 

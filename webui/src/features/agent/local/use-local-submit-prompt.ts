@@ -35,10 +35,11 @@ import { useLocalMessagesStore } from "@/features/agent/store/local-messages-sto
 import { putChatTranscript } from "@/features/agent/api/chat-transcript"
 import type { ChatMessage } from "@/features/agent/types/chat"
 import { agentLog } from "@/features/agent/engine/debug"
-import type { CanvasStore } from "@canvas-harness/core"
+import type { CanvasStore, WorldRect } from "@canvas-harness/core"
 import { blobToDataUri } from "@canvas-harness/core"
 import { getBoardCaptureRef } from "@/features/board/harness/board-capture-ref"
 import { shouldAttachBoardImage } from "./board-image-gate"
+import { selectionRegion } from "./selection-region"
 import { latestAssistantText, stepsFromEvents } from "./agent-event-to-step"
 import { COMPACT_TAIL_MESSAGES, compactHistory, isOverCompactionBudget, toLlmHistory } from "./chat-history"
 import { maybeAutoLabelBoard, maybeDeriveBoardPurpose } from "./describe-board"
@@ -60,6 +61,14 @@ const AGENT_TOOLS = [...agentBuildTools, searchNotes, ...memoryTools, ...skillTo
 
 let counter = 0
 const mintId = (): string => `local-${Date.now()}-${counter++}`
+
+
+// How the attached image is framed for the model: the whole viewport, or just the
+// user's selection (whose notes are also in the message context as SelectedNote blocks).
+const VIEWPORT_SCREENSHOT_NOTE =
+  "The attached image is a screenshot of the user's current board — read-only context showing what they've drawn or arranged. It is NOT a task to reproduce or redraw; use it to understand and answer."
+const SELECTION_SCREENSHOT_NOTE =
+  "The attached image shows exactly what the user selected on the board (the same notes as the SelectedNote blocks), including any handwritten ink marks — circles, arrows, crossings-out, notes — they drew over it. Treat those marks as the user pointing at or annotating content, and use them to understand the request. It is read-only context, NOT a task to reproduce or redraw."
 
 
 /**
@@ -107,11 +116,12 @@ const captureBoardImage = async (
   store: CanvasStore,
   llmCatalog: PublicModel[],
   llmModel: string,
+  region: WorldRect | null,
 ): Promise<LlmImage[] | undefined> => {
   if (!shouldAttachBoardImage(store, llmCatalog, llmModel)) return undefined
   try {
     const t0 = performance.now()
-    const blob = await getBoardCaptureRef()?.()
+    const blob = await getBoardCaptureRef()?.(region ? { region } : undefined)
     if (!blob) return undefined
     const url = await blobToDataUri(blob)
     agentLog.capture(Math.round(performance.now() - t0), blob.size)
@@ -322,7 +332,12 @@ export function useLocalSubmitPrompt(boardId: string, syncTranscript = false) {
         // just before the user message is built. Transient — set only on this live
         // turn's message (never the persisted ChatMessage or history). Best-effort:
         // a failed capture yields undefined and never blocks the turn.
-        const imagesPromise = captureBoardImage(store, llmCatalog, llmModel)
+        // When the user's selection rides along as context, screenshot exactly that
+        // region (so their ink annotations over it are legible) instead of the viewport.
+        // An open note panel wins over the selection in the context, so it does here too.
+        const region =
+          messageContext && !useBoardAppStore.getState().activeNodeSurface ? selectionRegion(store) : null
+        const imagesPromise = captureBoardImage(store, llmCatalog, llmModel, region)
         // Deterministic board awareness (no LLM), injected as a standing section.
         // Fenced in <board> (like <memory>/<conversation>) so the model reads it as
         // CONTEXT describing the user's canvas, never as instructions or as material
@@ -343,7 +358,7 @@ export function useLocalSubmitPrompt(boardId: string, syncTranscript = false) {
         const images = await imagesPromise
         const userMessageForAgent = wrapWithMessageContext(
           images
-            ? `${prompt}\n\n<board_screenshot>The attached image is a screenshot of the user's current board — read-only context showing what they've drawn or arranged. It is NOT a task to reproduce or redraw; use it to understand and answer.</board_screenshot>`
+            ? `${prompt}\n\n<board_screenshot>${region ? SELECTION_SCREENSHOT_NOTE : VIEWPORT_SCREENSHOT_NOTE}</board_screenshot>`
             : prompt,
           messageContext,
         )

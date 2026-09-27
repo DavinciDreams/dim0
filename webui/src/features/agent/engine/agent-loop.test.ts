@@ -391,9 +391,10 @@ describe("skills", () => {
     expect(out.length).toBeGreaterThan(200)
   })
 
-  it("exposes the three skill loaders", () => {
+  it("exposes the four skill loaders", () => {
     expect(skillTools.map((t) => t.name).sort()).toEqual([
       "learn_generate_applet",
+      "learn_generate_architecture_diagram",
       "learn_generate_diagram",
       "learn_generate_html_widget",
     ])

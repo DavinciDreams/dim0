@@ -123,6 +123,12 @@ const toOutput = (name: string, args: unknown, result: unknown, boardId: string)
       .filter((r) => r.noteId !== "")
     return { type: "note_search", references }
   }
+  if (name === "delete_note") return "Deleted note"
+  if (name === "move_note") return "Moved note"
+  if (name === "unlink_notes") {
+    const n = field(result, "removed")
+    return `Removed ${typeof n === "number" ? n : 0} link${n === 1 ? "" : "s"}`
+  }
   if (name === "arrange_notes") {
     const n = field(result, "arranged")
     return `Arranged ${typeof n === "number" ? n : 0} notes`

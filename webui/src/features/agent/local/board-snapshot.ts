@@ -19,7 +19,7 @@ import type { StorageEngine } from "@/features/board/persist/local/engine"
 
 
 /** How a node is categorized in the snapshot's type breakdown. */
-export type NodeKind = "note" | "folder" | "sheet" | "mini-app" | "applet" | "code-sandbox" | "widget" | "document" | "ink"
+export type NodeKind = "note" | "folder" | "sheet" | "mini-app" | "applet" | "diagram" | "code-sandbox" | "widget" | "document" | "ink"
 
 
 /** One folder layer (or root) in the board's structure. */
@@ -69,7 +69,7 @@ const TITLE_MAX_CHARS = 40
 // not a note, so counting it as one (and listing it as "(untitled)") is noise
 // for the agent. A vision model reads the strokes from the viewport image; the
 // text snapshot just needs to say how many there are.
-const RECOGNIZED_KINDS: ReadonlySet<string> = new Set(["folder", "sheet", "mini-app", "applet", "code-sandbox", "widget", "ink"])
+const RECOGNIZED_KINDS: ReadonlySet<string> = new Set(["folder", "sheet", "mini-app", "applet", "diagram", "code-sandbox", "widget", "ink"])
 
 
 const KIND_PLURAL: Record<NodeKind, [string, string]> = {
@@ -78,6 +78,7 @@ const KIND_PLURAL: Record<NodeKind, [string, string]> = {
   sheet: ["sheet", "sheets"],
   "mini-app": ["mini-app", "mini-apps"],
   applet: ["applet", "applets"],
+  diagram: ["diagram", "diagrams"],
   "code-sandbox": ["code sandbox", "code sandboxes"],
   widget: ["widget", "widgets"],
   document: ["document", "documents"],
@@ -125,7 +126,9 @@ const nodeTitle = (n: Node, kind?: NodeKind): string => {
   // labelText tolerates a legacy bare-string label — raw oplog ops read here
   // aren't normalized-on-load the way the live store is.
   const label = labelText(data.label).trim()
-  return truncate(label || firstLine(n.content) || "(untitled)", TITLE_MAX_CHARS)
+  // A diagram's content is a JSON spec — its first line is `{`; use meta.title.
+  const diagramTitle = (kind ?? nodeKind(data, n.type)) === "diagram" ? /"title"\s*:\s*"([^"]+)"/.exec(n.content ?? "")?.[1] : undefined
+  return truncate(label || diagramTitle || firstLine(n.content) || "(untitled)", TITLE_MAX_CHARS)
 }
 
 

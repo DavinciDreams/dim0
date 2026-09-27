@@ -482,6 +482,38 @@ async def remove_note_from_graph(
     return {"message": "Note removed from board successfully"}
 
 
+@router.get("/{graph_id}/notes/{note_id}/revisions/", include_in_schema=False)
+@router.get("/{graph_id}/notes/{note_id}/revisions")
+@with_standard_response
+async def list_note_revisions(
+    response: Response,
+    request: Request,
+    graph_id: Annotated[str, Path(description="Graph ID")],
+    note_id: Annotated[str, Path(description="Note ID")],
+    _: Annotated[None, Depends(verify_board_read_access)],
+):
+    """List a board note's saved revisions (newest first) for preview and client-side restore."""
+    store: GraphStore = request.app.graph_store
+
+    current = await store.get_nodes([note_id])
+    if not current or current[0].graph_uid != graph_id:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    revisions = await store.list_note_revisions(note_id)
+    return {
+        "revisions": [
+            {
+                "id": revision_id,
+                "created_at": created_at.isoformat(),
+                "label": note.label.markdown if note.label else None,
+                "content": note.content.markdown if note.content else "",
+            }
+            for revision_id, created_at, note in revisions
+            if note.graph_uid == graph_id
+        ]
+    }
+
+
 @router.post("/{graph_id}/notes/{note_id}:restore-latest", include_in_schema=False)
 @router.post("/{graph_id}/notes/{note_id}:restore-latest")
 @with_standard_response

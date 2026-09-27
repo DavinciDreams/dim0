@@ -18,9 +18,12 @@ from topix.agents.datatypes.tools import AgentToolName
 from topix.agents.image.gen import generate_image_tool
 from topix.agents.memory.search import create_memory_search_tool
 from topix.agents.notes.tools import (
+    create_delete_note_tool,
     create_edit_note_tool,
     create_get_note_tool,
     create_link_notes_tool,
+    create_move_note_tool,
+    create_unlink_notes_tool,
     create_write_note_tool,
 )
 from topix.agents.websearch.fetch import fetch_url_content_tool
@@ -98,6 +101,9 @@ class Plan(BaseAgent):
             tools.append(create_edit_note_tool(graph_store, graph_uid, agent_bridge=agent_bridge))
             tools.append(create_get_note_tool(graph_store, graph_uid))
             tools.append(create_link_notes_tool(graph_store, graph_uid, root_id=root_id, agent_bridge=agent_bridge))
+            tools.append(create_delete_note_tool(graph_store, graph_uid, agent_bridge=agent_bridge))
+            tools.append(create_move_note_tool(graph_store, graph_uid, agent_bridge=agent_bridge))
+            tools.append(create_unlink_notes_tool(graph_store, graph_uid, agent_bridge=agent_bridge))
 
         if config.navigate:
             tools.append(fetch_url_content_tool)

@@ -26,8 +26,8 @@ describe("prompts", () => {
   })
 
 
-  it("ships the three skill prompts as non-trivial text", () => {
-    for (const key of ["learn_generate_diagram", "learn_generate_applet", "learn_generate_html_widget"] as const) {
+  it("ships the four skill prompts as non-trivial text", () => {
+    for (const key of ["learn_generate_diagram", "learn_generate_applet", "learn_generate_html_widget", "learn_generate_architecture_diagram"] as const) {
       expect(SKILLS[key].length).toBeGreaterThan(200)
     }
   })
