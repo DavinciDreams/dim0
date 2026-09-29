@@ -1,4 +1,4 @@
-import { API_URL } from "@/config/api"
+import { resolveApiUrl } from "@/config/api"
 import {
   getAccessToken,
   getRefreshToken,
@@ -122,7 +122,7 @@ async function refreshAccessToken(): Promise<void> {
     const rt = getRefreshToken()
     if (!rt) throw new Error("No refresh token")
 
-    const url = new URL("/users/refresh", API_URL)
+    const url = resolveApiUrl("/users/refresh")
     const res = await trackedFetch(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -168,10 +168,7 @@ export async function apiFetch<TResponse = unknown, TBody = unknown>(
   const { method = "GET", headers, body, params, signal, noAuth } = opts
 
   // Build absolute URL from API_URL + path
-  const url = new URL(
-    typeof opts.path === "string" ? opts.path : opts.path.toString(),
-    API_URL
-  )
+  const url = resolveApiUrl(opts.path)
 
   if (params) {
     const sp = new URLSearchParams(url.search)
@@ -255,7 +252,7 @@ export async function apiFetch<TResponse = unknown, TBody = unknown>(
  * Sign in a user and store the returned tokens.
  */
 export async function signin(username: string, password: string): Promise<TokenPayload> {
-  const url = new URL("/users/signin", API_URL)
+  const url = resolveApiUrl("/users/signin")
   const form = new URLSearchParams()
   form.set("username", username)
   form.set("password", password)
@@ -333,7 +330,7 @@ export async function googleSigninWeb(
   codeVerifier: string,
   redirectUri: string,
 ): Promise<TokenPayload> {
-  const res = await trackedFetch(new URL("/users/google-signin-web", API_URL).toString(), {
+  const res = await trackedFetch(resolveApiUrl("/users/google-signin-web").toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, code_verifier: codeVerifier, redirect_uri: redirectUri }),
@@ -366,7 +363,7 @@ export async function googleSigninDesktop(
   codeVerifier: string,
   redirectUri: string,
 ): Promise<TokenPayload> {
-  const res = await trackedFetch(new URL("/users/google-signin-desktop", API_URL).toString(), {
+  const res = await trackedFetch(resolveApiUrl("/users/google-signin-desktop").toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, code_verifier: codeVerifier, redirect_uri: redirectUri }),

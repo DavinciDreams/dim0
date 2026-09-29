@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { API_URL } from "@/config/api"
+import { API_URL, resolveApiUrl } from "@/config/api"
 
 
 // The transport is the ONLY thing that touches @/api; mock the raw fetch so we
@@ -56,7 +56,7 @@ describe("servicesPost", () => {
     fetchWithAuthRaw.mockResolvedValue(jsonResponse({ ok: true }))
     await servicesPost("/ai/code", { code: "1+1", language: "python" })
     const [url, init] = lastCall()
-    expect(url).toBe(`${new URL("/ai/code", getServicesBaseUrl()).toString()}`)
+    expect(url).toBe(resolveApiUrl("/ai/code", getServicesBaseUrl()).toString())
     expect(init.method).toBe("POST")
     expect(init.headers.get("Content-Type")).toBe("application/json")
     expect(init.body).toBe(JSON.stringify({ code: "1+1", language: "python" }))
@@ -101,6 +101,14 @@ describe("servicesPost", () => {
     await servicesPost("/ai/fetch", { url: "https://x.com" })
     const [url] = lastCall()
     expect(url).toBe("http://localhost:9999/ai/fetch")
+  })
+
+  it("preserves a path prefix in a swapped base URL", async () => {
+    fetchWithAuthRaw.mockResolvedValue(jsonResponse({}))
+    setServicesBaseUrl("https://example.com/api")
+    await servicesPost("/ai/fetch", { url: "https://x.com" })
+    const [url] = lastCall()
+    expect(url).toBe("https://example.com/api/ai/fetch")
   })
 })
 

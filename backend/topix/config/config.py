@@ -61,6 +61,11 @@ class PostgresConfig(BaseModel):
             self.port = int(env_port)
             logger.info(f"Postgres port set from environment POSTGRES_PORT: {self.port}")
 
+        env_password = os.getenv("POSTGRES_PASSWORD")
+        if env_password:
+            self.password = SecretStr(env_password)
+            logger.info("Postgres password set from environment POSTGRES_PASSWORD.")
+
     def dsn(self) -> str:
         """Return a properly encoded PostgreSQL connection string."""
         user_enc = quote_plus(self.user)
