@@ -34,7 +34,7 @@ services:
 
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
