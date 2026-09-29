@@ -21,3 +21,19 @@ const runtime =
   typeof window !== "undefined" ? window.__APP_CONFIG__?.apiBase : undefined
 
 export const API_URL = runtime || getEffectiveApiBase() || "http://localhost:8888"
+
+
+/** Resolve an API path without discarding an optional base-path prefix. */
+export const resolveApiUrl = (path: string | URL, baseUrl = API_URL): URL => {
+  if (path instanceof URL) return new URL(path.toString())
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`
+  return new URL(path.replace(/^\/+/, ""), normalizedBase)
+}
+
+
+/** Resolve a backend WebSocket path from the configured HTTP API base. */
+export const resolveApiWebSocketUrl = (path: string, baseUrl = API_URL): string => {
+  const url = resolveApiUrl(path, baseUrl)
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
+  return url.toString()
+}

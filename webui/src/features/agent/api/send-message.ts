@@ -1,4 +1,4 @@
-import { API_URL } from "@/config/api"
+import { resolveApiUrl } from "@/config/api"
 import type { AgentResponse, ReasoningStep } from "../types/stream"
 import type { SendMessageRequestPayload } from "./types"
 import { handleStreamingResponse } from "../utils/stream/digest"
@@ -77,7 +77,7 @@ export async function* sendMessage(
   userId: string,
   opts?: { signal?: AbortSignal }
 ): AsyncGenerator<Record<string, unknown>> {
-  const url = new URL(`/chats/${chatId}/messages`, API_URL)
+  const url = resolveApiUrl(`/chats/${chatId}/messages`)
   url.searchParams.set("user_id", userId)
 
   // Build headers without Authorization; fetchWithAuthRaw adds it

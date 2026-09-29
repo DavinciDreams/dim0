@@ -15,7 +15,7 @@ import {
 } from "@canvas-harness/core"
 import camelcaseKeys from "camelcase-keys"
 import { mintCollabTicket } from "@/features/board/api/collab-ticket"
-import { API_URL } from "@/config/api"
+import { resolveApiWebSocketUrl } from "@/config/api"
 import { notifyWsClose } from "@/features/connection/connection-state"
 import type { Graph } from "@/features/board/types/board"
 import { useAppStore } from "@/store"
@@ -136,7 +136,9 @@ export const useWsCollab = (
       // overwrite the folder-scoped store.
       const sinceSeqParam = lastSeq > 0 ? `&since_seq=${lastSeq}` : ""
       const rootIdParam = rootId ? `&root_id=${encodeURIComponent(rootId)}` : ""
-      const url = `${wsBaseFromApiUrl(API_URL)}/boards/${boardId}/collab?ticket=${encodeURIComponent(ticket)}${sinceSeqParam}${rootIdParam}`
+      const url = resolveApiWebSocketUrl(
+        `/boards/${boardId}/collab?ticket=${encodeURIComponent(ticket)}${sinceSeqParam}${rootIdParam}`,
+      )
       const adapter = createWebSocketSyncAdapter({
         url,
         clientId: store.clientId,
@@ -205,13 +207,6 @@ export const useWsCollab = (
     }
   }, [store, boardId, enabled, userName, userId, userEmail, rootId])
 }
-
-
-/**
- * Build a `ws(s)://host` base from the configured HTTP API URL.
- * `http://` → `ws://`, `https://` → `wss://`.
- */
-const wsBaseFromApiUrl = (apiUrl: string): string => apiUrl.replace(/^http/i, "ws")
 
 
 /**
