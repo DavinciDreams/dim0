@@ -51,6 +51,15 @@ logging_config()
 logger = logging.getLogger(__name__)
 
 
+def _create_parser_pipeline() -> ParsingPipeline | None:
+    """Create the PDF parsing pipeline only when Mistral OCR is configured."""
+    if not Config.instance().run.apis.mistral.api_key:
+        logger.warning("PDF document import is disabled because MISTRAL_API_KEY is not configured.")
+        return None
+
+    return ParsingPipeline()
+
+
 def create_app(stage: StageEnum):
     """Create and configure the FastAPI application."""
     @asynccontextmanager
@@ -81,7 +90,7 @@ def create_app(stage: StageEnum):
         await app.mini_app_state_store.open(app.pg_pool)
         app.subscription_store = SubscriptionStore()
         await app.subscription_store.open()
-        app.parser_pipeline = ParsingPipeline()
+        app.parser_pipeline = _create_parser_pipeline()
 
         # Initialize Redis
         app.redis_store = RedisStore.from_config()

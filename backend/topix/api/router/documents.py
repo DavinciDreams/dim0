@@ -21,6 +21,17 @@ router = APIRouter(
 )
 
 
+def _require_parsing_pipeline(request: Request) -> ParsingPipeline:
+    """Return the PDF pipeline or explain that Mistral OCR is unavailable."""
+    pipeline: ParsingPipeline | None = getattr(request.app, "parser_pipeline", None)
+    if pipeline is None:
+        raise HTTPException(
+            status_code=503,
+            detail="PDF document import requires MISTRAL_API_KEY.",
+        )
+    return pipeline
+
+
 @router.post("/", include_in_schema=False)
 @router.post("")
 @with_resilient_request()
@@ -33,6 +44,7 @@ async def create_document_from_file(
     id: Annotated[str | None, Query(description="Optional ID for the parsed document")] = None,
 ):
     """Create a document by parsing an uploaded file (PDF only)."""
+    pipeline = _require_parsing_pipeline(request)
     file_bytes = await file.read()
     # Strip client path components so the upload can't traverse out of the data
     # root (basename only); save_file confines the write as a backstop.
@@ -53,8 +65,6 @@ async def create_document_from_file(
         )
 
     true_path = get_file_path(saved_path)
-
-    pipeline: ParsingPipeline = request.app.parser_pipeline
 
     document, chunks, notes, links = await pipeline.process_file(
         filepath=true_path,
