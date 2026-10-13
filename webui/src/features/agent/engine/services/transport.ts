@@ -9,7 +9,7 @@
  * `fetchWithAuthRaw`, so auth (bearer + 401 refresh) is identical to the rest of
  * the app; only the base URL is swappable here.
  */
-import { API_URL } from "@/config/api"
+import { API_URL, resolveApiUrl } from "@/config/api"
 import { fetchWithAuthRaw } from "@/api"
 import { handleStreamingResponse } from "../../utils/stream/digest"
 
@@ -30,7 +30,7 @@ export const setServicesBaseUrl = (url: string): void => {
 export const getServicesBaseUrl = (): string => baseUrl
 
 
-const buildUrl = (path: string): string => new URL(path, baseUrl).toString()
+const buildUrl = (path: string): string => resolveApiUrl(path, baseUrl).toString()
 
 
 const jsonHeaders = (extra?: Record<string, string>): Headers =>

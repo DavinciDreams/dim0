@@ -18,9 +18,9 @@ describe("getEffectiveApiBase", () => {
     expect(getEffectiveApiBase()).toBe("https://vendor.example")
   })
 
-  it("normalizes to a bare origin (drops a path + trailing slash)", () => {
+  it("preserves a backend path prefix while dropping its trailing slash", () => {
     vi.stubEnv("VITE_API_URL", "https://vendor.example/api/")
-    expect(getEffectiveApiBase()).toBe("https://vendor.example")
+    expect(getEffectiveApiBase()).toBe("https://vendor.example/api")
   })
 
   it("fills a missing scheme with https for a public host (not origin 'null')", () => {

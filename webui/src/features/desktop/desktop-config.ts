@@ -35,18 +35,20 @@ const defaultScheme = (input: string): "http" | "https" => {
  * the dev-backend fallback in `config/api.ts` rather than crashing). Consumed by
  * `config/api.ts` to set `API_URL`.
  *
- * Normalized to a bare origin — the app addresses the backend with absolute paths
- * (`new URL("/x", base)`), so any path in the value is dropped rather than
- * silently 404-ing every call. A missing scheme is filled in (http for
- * local/LAN hosts, https otherwise) instead of parsing as `new URL("host:port")`
- * → origin `"null"`.
+ * Normalized to an origin plus an optional path prefix. This lets packaged
+ * desktop builds target a backend mounted at a shared-domain path such as
+ * `https://example.com/api`. A missing scheme is filled in (http for local/LAN
+ * hosts, https otherwise) instead of parsing as `new URL("host:port")` → origin
+ * `"null"`.
  */
 export const getEffectiveApiBase = (): string | undefined => {
   const raw = import.meta.env.VITE_API_URL?.trim()
   if (!raw) return undefined
   const withScheme = /^https?:\/\//i.test(raw) ? raw : `${defaultScheme(raw)}://${raw}`
   try {
-    return new URL(withScheme).origin
+    const parsed = new URL(withScheme)
+    const path = parsed.pathname.replace(/\/+$/, "")
+    return `${parsed.origin}${path}`
   } catch {
     // Genuinely malformed — degrade to the dev-backend fallback rather than hand
     // back an unusable base that would throw at every request site.

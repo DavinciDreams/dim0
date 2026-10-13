@@ -1,4 +1,4 @@
-import { API_URL } from "@/config/api"
+import { resolveApiUrl } from "@/config/api"
 
 
 /**
@@ -11,7 +11,7 @@ import { API_URL } from "@/config/api"
  * probe.
  */
 export const pingServer = async (timeoutMs = 4000): Promise<boolean> => {
-  const url = new URL("/utils/ping", API_URL).toString()
+  const url = resolveApiUrl("/utils/ping").toString()
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {

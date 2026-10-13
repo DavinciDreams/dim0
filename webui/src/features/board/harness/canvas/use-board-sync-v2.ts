@@ -19,7 +19,7 @@ import { useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import type { CanvasStore } from "@canvas-harness/core"
 import camelcaseKeys from "camelcase-keys"
-import { API_URL } from "@/config/api"
+import { resolveApiWebSocketUrl } from "@/config/api"
 import { mintCollabTicket } from "@/features/board/api/collab-ticket"
 import type { BoardRole } from "@/features/board/api/get-board"
 import { getLocalStores } from "@/features/local-stores"
@@ -40,9 +40,6 @@ import { applyGraphToStore } from "../persist/snapshot-load"
 import { applyContentToStore } from "@/features/board/persist/local/apply-content"
 import { materializeBoardOffline } from "@/features/board/persist/local/materialize-board"
 import { boardOfflineKey } from "@/features/board/api/board-offline-status"
-
-
-const wsBaseFromApiUrl = (apiUrl: string): string => apiUrl.replace(/^http/i, "ws")
 
 
 /** Wire a v2 synced board to the relay via the offline-first coordinator. */
@@ -133,7 +130,7 @@ export const useBoardSyncV2 = (
                   if (!cancelled) onRoleRef.current?.(role)
                   return ticket
                 },
-                wsUrl: (path) => `${wsBaseFromApiUrl(API_URL)}${path}`,
+                wsUrl: (path) => resolveApiWebSocketUrl(path),
                 onClose: (code) => supe.onClose(code),
               })
             },

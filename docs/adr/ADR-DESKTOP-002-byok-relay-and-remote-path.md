@@ -16,12 +16,12 @@ unchanged — only the transport branches on `isTauri()`):
   `API_URL`, which is **baked in at build** via `VITE_API_URL` (the same env var
   the web frontend uses — so a distributor ships pointing at their server and users
   just sign in). There is **no in-app override**: the server is fixed at build time
-  (`getEffectiveApiBase`). The value is normalized to an **origin root** — any path
-  is dropped, since the app addresses the backend with absolute paths.
+  (`getEffectiveApiBase`). The value is normalized to an origin plus an optional
+  path prefix, so a shared-domain backend such as `https://example.com/api` works.
 - **Local/offline = signed out.** The front door makes zero backend calls while
   signed out, so BYOK-only local use contacts no server regardless of whether one
   is configured. The sign-in entry point is always shown, but sign-in only
-  succeeds once `VITE_API_URL` points at a real server.
+  succeeds once `VITE_API_URL` points at a real server or shared-domain API path.
 
 ## Why
 The desktop webview enforces CORS like a browser, so BYOK provider calls need a
@@ -29,10 +29,9 @@ non-CORS path — `plugin-http` provides it — and going through our proxy woul
 require our server (defeating offline) and can't relay the user's LLM key anyway.
 A shipped desktop app can't hold *our* secret keys, so **managed** is served only
 by the remote server, gated on sign-in. One `API_URL` already drives REST, collab
-WS (`wsBaseFromApiUrl`), and managed `/ai/*`, so a single setting lights up the
-whole remote path — no per-subsystem wiring. The origin-root normalization exists
-because the app addresses the backend with absolute paths, so any path in
-`VITE_API_URL` would be dropped anyway.
+WS, and managed `/ai/*`, so a single setting lights up the whole remote path — no
+per-subsystem wiring. The shared URL resolver preserves an optional path prefix
+for every HTTP and WebSocket request.
 
 ## Consequences
 - Offline BYOK agent works with the user's keys: LLM, all four search engines
