@@ -10,7 +10,6 @@ import {
   GraphViewIcon,
   GridViewIcon,
   HandGrabIcon,
-  HandPanIcon,
   InkPenIcon,
   LayerStackIcon,
   ListViewIcon,
@@ -238,6 +237,7 @@ function FlaredTray({
 export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
   const tool = useBoardAppStore((s) => s.tool)
   const setTool = useBoardAppStore((s) => s.setTool)
+  const canEdit = useBoardAppStore((s) => s.canEdit)
   const inkColor = useBoardAppStore((s) => s.inkColor)
   const setInkColor = useBoardAppStore((s) => s.setInkColor)
   const inkSize = useBoardAppStore((s) => s.inkSize)
@@ -253,6 +253,7 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
   // for styling, and the nested Tooltip/Dropdown triggers both write
   // `data-state`, so a `data-[state=open]:` variant would be ambiguous).
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [inkMenuOpen, setInkMenuOpen] = useState(false)
 
   const isBoard = viewMode === "board"
   const isPan = tool === "pan"
@@ -320,49 +321,43 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
       */}
       {isBoard && (
       <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => setTool("pan")}
-            aria-label="Pan"
-            aria-pressed={isPan}
-            className={isPan ? activeClass : inactiveClass}
-          >
-            <div className="relative">
-              {isPan ? (
-                <HandGrabIcon className="size-4 shrink-0" weight="fill" />
-              ) : (
-                <HandPanIcon className="size-4 shrink-0" />
-              )}
-              <ShortcutHint shortcut="P" />
-            </div>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={10}>Pan</TooltipContent>
-      </Tooltip>
-
+      {/*
+        One navigation tool: with Select, dragging empty canvas pans and
+        Shift+drag box-selects (use-drag-to-pan). The hand tool stays on the
+        P/H shortcut and shows here only while it's active.
+      */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
             onClick={() => setTool("select")}
             aria-label="Select"
-            aria-pressed={isSelect}
-            className={isSelect ? activeClass : inactiveClass}
+            aria-pressed={isSelect || isPan}
+            className={isSelect || isPan ? activeClass : inactiveClass}
           >
             <div className="relative">
-              <CursorSelectIcon
-                className="size-4 shrink-0"
-                weight={isSelect ? "fill" : undefined}
-              />
+              {isPan ? (
+                <HandGrabIcon className="size-4 shrink-0" weight="fill" />
+              ) : (
+                <CursorSelectIcon
+                  className="size-4 shrink-0"
+                  weight={isSelect ? "fill" : undefined}
+                />
+              )}
               <ShortcutHint shortcut="V" />
             </div>
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={10}>Select</TooltipContent>
+        <TooltipContent side="bottom" sideOffset={10} className="text-center">
+          Select · drag empty space to pan
+          <br />
+          Shift+drag to box-select · scroll to pan · Ctrl+scroll to zoom
+        </TooltipContent>
       </Tooltip>
 
+      {/* Creation tools: hidden for viewers, whose edits the server rejects. */}
+      {canEdit && (
+      <>
       <Separator orientation="vertical" className="hidden md:!h-6 md:block" />
 
       <DropdownMenu
@@ -476,7 +471,8 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
         color + width, so picking the pen and adjusting it is one gesture.
         The eraser (next) is a plain tool toggle with no settings of its own.
       */}
-      <Popover>
+      {/* Controlled: the settings only show while the pen is the active tool. */}
+      <Popover open={inkMenuOpen && tool === "ink"} onOpenChange={setInkMenuOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -560,6 +556,9 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
         <TooltipContent side="bottom" sideOffset={10}>Eraser</TooltipContent>
       </Tooltip>
 
+      </>
+      )}
+
       <Separator orientation="vertical" className="hidden md:!h-6 md:block" />
 
       <Tooltip>
@@ -587,7 +586,7 @@ export function HarnessToolbar({ local = false }: { local?: boolean } = {}) {
       </>
       )}
 
-      <HarnessToolbarMore local={local} />
+      {canEdit && <HarnessToolbarMore local={local} />}
     </FlaredTray>
   )
 }

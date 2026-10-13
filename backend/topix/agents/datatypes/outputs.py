@@ -295,11 +295,57 @@ class GetNoteOutput(BaseModel):
         str | None,
         "The current parent folder/root note id, if any."
     ] = None
+    version: Annotated[
+        str,
+        "Content version; pass it back as expected_version when rewriting, editing, or deleting this note."
+    ] = ""
 
     def to_compact_repr(self) -> str:
         """Return the fetched note metadata in a compact, history-safe form."""
         label = f' "{self.label}"' if self.label else ""
-        return f'read {self.note_type} note_id="{self.note_id}"{label}'
+        version = f' version="{self.version}"' if self.version else ""
+        return f'read {self.note_type} note_id="{self.note_id}"{version}{label}'
+
+
+class DeleteNoteOutput(BaseModel):
+    """Output from delete note tool."""
+
+    type: Literal["delete_note"] = "delete_note"
+    note_id: Annotated[str, "The unique id of the deleted note."]
+    graph_uid: Annotated[str, "The board id the note belonged to."]
+
+    def to_compact_repr(self) -> str:
+        """Return the deletion in a compact, history-safe form."""
+        return f'deleted note_id="{self.note_id}"'
+
+
+class MoveNoteOutput(BaseModel):
+    """Output from move note tool."""
+
+    type: Literal["move_note"] = "move_note"
+    note_id: Annotated[str, "The unique id of the moved note."]
+    graph_uid: Annotated[str, "The board id where the note belongs."]
+    x: Annotated[float, "The note's new x position."]
+    y: Annotated[float, "The note's new y position."]
+    label: Annotated[str | None, "Optional short title of the moved note."] = None
+    note_type: Annotated[NodeType, "The node type of the moved note."]
+    parent_id: Annotated[str | None, "The parent folder/root note id, if any."] = None
+
+    def to_compact_repr(self) -> str:
+        """Return the move in a compact, history-safe form."""
+        return f'moved note_id="{self.note_id}" to ({self.x:g}, {self.y:g})'
+
+
+class UnlinkNotesOutput(BaseModel):
+    """Output from unlink notes tool."""
+
+    type: Literal["unlink_notes"] = "unlink_notes"
+    link_id: Annotated[str, "The unique id of the removed link."]
+    graph_uid: Annotated[str, "The board id the link belonged to."]
+
+    def to_compact_repr(self) -> str:
+        """Return the removal in a compact, history-safe form."""
+        return f'unlinked link_id="{self.link_id}"'
 
 
 class LinkNotesOutput(BaseModel):
@@ -373,6 +419,9 @@ type ToolOutput = Union[
     EditNoteOutput,
     GetNoteOutput,
     LinkNotesOutput,
+    DeleteNoteOutput,
+    MoveNoteOutput,
+    UnlinkNotesOutput,
     WebSearchOutput,
     MemorySearchOutput,
     NotifyOutput,

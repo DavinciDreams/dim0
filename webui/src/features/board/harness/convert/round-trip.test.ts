@@ -34,6 +34,7 @@ const NODE_TYPES: NodeType[] = [
   "folder",
   "code-sandbox",
   "widget",
+  "diagram",
 ]
 
 

@@ -1,0 +1,107 @@
+/*
+ * Theme for Archify-rendered diagram SVGs (the `diagram` note type).
+ *
+ * Ported from the "SVG SEMANTIC CLASSES" section of Archify's
+ * assets/template.html (MIT, see vendor/archify), scoped under `.dim0-diagram`
+ * so nothing leaks onto the board. Structural colors come from dim0's theme
+ * tokens (index.css), so diagrams follow the active palette; the seven
+ * component kinds keep Archify's hue coding, with a separate dark-mode set.
+ */
+
+.dim0-diagram {
+  --dd-text: var(--foreground);
+  --dd-text-muted: var(--muted-foreground);
+  --dd-text-dim: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  --dd-grid: color-mix(in oklab, var(--border) 60%, transparent);
+  --dd-mask: var(--card);
+  --dd-arrow: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+  --dd-lane-fill: color-mix(in oklab, var(--muted) 45%, transparent);
+  --dd-lane-stroke: var(--border);
+
+  --dd-frontend: oklch(0.58 0.11 215);
+  --dd-backend: oklch(0.56 0.12 160);
+  --dd-database: oklch(0.52 0.19 293);
+  --dd-cloud: oklch(0.63 0.15 65);
+  --dd-security: oklch(0.58 0.21 15);
+  --dd-messagebus: oklch(0.62 0.18 45);
+  --dd-external: var(--muted-foreground);
+  --dd-fill-mix: 14%;
+
+  font-family: var(--font-mono);
+  color: var(--dd-text);
+}
+
+[data-mode="dark"] .dim0-diagram {
+  --dd-frontend: oklch(0.80 0.12 210);
+  --dd-backend: oklch(0.80 0.14 162);
+  --dd-database: oklch(0.74 0.14 293);
+  --dd-cloud: oklch(0.84 0.15 85);
+  --dd-security: oklch(0.73 0.16 12);
+  --dd-messagebus: oklch(0.76 0.15 50);
+  --dd-fill-mix: 22%;
+}
+
+.dim0-diagram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Background grid + opaque masks behind semi-transparent component fills. */
+.dim0-diagram .c-grid { stroke: var(--dd-grid); fill: none; }
+.dim0-diagram .c-mask { fill: var(--dd-mask); stroke: none; }
+
+.dim0-diagram .c-frontend   { fill: color-mix(in oklab, var(--dd-frontend) var(--dd-fill-mix), transparent);   stroke: var(--dd-frontend); }
+.dim0-diagram .c-backend    { fill: color-mix(in oklab, var(--dd-backend) var(--dd-fill-mix), transparent);    stroke: var(--dd-backend); }
+.dim0-diagram .c-database   { fill: color-mix(in oklab, var(--dd-database) var(--dd-fill-mix), transparent);   stroke: var(--dd-database); }
+.dim0-diagram .c-cloud      { fill: color-mix(in oklab, var(--dd-cloud) var(--dd-fill-mix), transparent);      stroke: var(--dd-cloud); }
+.dim0-diagram .c-security   { fill: color-mix(in oklab, var(--dd-security) var(--dd-fill-mix), transparent);   stroke: var(--dd-security); }
+.dim0-diagram .c-messagebus { fill: color-mix(in oklab, var(--dd-messagebus) var(--dd-fill-mix), transparent); stroke: var(--dd-messagebus); }
+.dim0-diagram .c-external   { fill: color-mix(in oklab, var(--dd-external) var(--dd-fill-mix), transparent);   stroke: var(--dd-external); }
+
+/* Boundary / lane frames. */
+.dim0-diagram .c-security-group { fill: transparent; stroke: var(--dd-security); stroke-dasharray: 4, 4; }
+.dim0-diagram .c-region         { fill: color-mix(in oklab, var(--dd-cloud) 5%, transparent); stroke: var(--dd-cloud); stroke-dasharray: 8, 4; }
+.dim0-diagram .c-lane           { fill: var(--dd-lane-fill); stroke: var(--dd-lane-stroke); stroke-dasharray: 6, 6; }
+
+/* Text helpers. */
+.dim0-diagram .t-primary    { fill: var(--dd-text); }
+.dim0-diagram .t-muted      { fill: var(--dd-text-muted); }
+.dim0-diagram .t-dim        { fill: var(--dd-text-dim); }
+.dim0-diagram .t-frontend   { fill: var(--dd-frontend); }
+.dim0-diagram .t-backend    { fill: var(--dd-backend); }
+.dim0-diagram .t-database   { fill: var(--dd-database); }
+.dim0-diagram .t-cloud      { fill: var(--dd-cloud); }
+.dim0-diagram .t-security   { fill: var(--dd-security); }
+.dim0-diagram .t-messagebus { fill: var(--dd-messagebus); }
+.dim0-diagram .t-external   { fill: var(--dd-external); }
+
+/* Semantic sigils: small role stamps in each node's corner. */
+.dim0-diagram .semantic-sigil {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.76;
+  pointer-events: none;
+}
+.dim0-diagram .semantic-sigil > * { vector-effect: non-scaling-stroke; }
+.dim0-diagram .semantic-sigil .sigil-fill { fill: currentColor; stroke: none; }
+.dim0-diagram .s-frontend   { color: var(--dd-frontend); }
+.dim0-diagram .s-backend    { color: var(--dd-backend); }
+.dim0-diagram .s-database   { color: var(--dd-database); }
+.dim0-diagram .s-cloud      { color: var(--dd-cloud); }
+.dim0-diagram .s-security   { color: var(--dd-security); }
+.dim0-diagram .s-messagebus { color: var(--dd-messagebus); }
+.dim0-diagram .s-external   { color: var(--dd-external); }
+
+/* Relationship strokes + arrowheads. */
+.dim0-diagram .a-default  { stroke: var(--dd-arrow); fill: none; }
+.dim0-diagram .a-emphasis { stroke: var(--dd-backend); fill: none; }
+.dim0-diagram .a-security { stroke: var(--dd-security); fill: none; stroke-dasharray: 5, 5; }
+.dim0-diagram .a-dashed   { stroke: var(--dd-database); fill: none; stroke-dasharray: 4, 4; }
+.dim0-diagram .m-default  { fill: var(--dd-arrow); }
+.dim0-diagram .m-emphasis { fill: var(--dd-backend); }
+.dim0-diagram .m-security { fill: var(--dd-security); }
+.dim0-diagram .m-dashed   { fill: var(--dd-database); }

@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from topix.agents.websearch.parallel import close_client as close_parallel_client
 from topix.api.router import (
     ai,
     billing,
@@ -31,6 +32,7 @@ from topix.collab.agent_bridge import AgentBoardBridge
 from topix.collab.room import RoomRegistry
 from topix.config.config import Config
 from topix.datatypes.stage import StageEnum
+from topix.mcp_server.board_mcp import create_board_mcp
 from topix.nlp.pipeline.parsing import ParsingPipeline
 from topix.setup import setup
 from topix.store.chat import ChatStore
@@ -111,7 +113,9 @@ def create_app(stage: StageEnum):
             oplog=app.collab_oplog,
         )
 
-        yield
+        # The MCP transport needs its session manager running for the app's lifetime.
+        async with board_mcp.session_manager.run():
+            yield
 
         # Close stores. They no-op the pool close when sharing, then we close
         # the shared pool exactly once at the end.
@@ -124,6 +128,8 @@ def create_app(stage: StageEnum):
         await app.mini_app_state_store.close()
         await app.subscription_store.close()
         await app.collab_oplog.close()
+        # Shared anonymous client for keyless search (module-level, not on app).
+        await close_parallel_client()
         # Close Redis
         await app.redis_store.close()
         await app.pg_pool.close()
@@ -163,6 +169,11 @@ def create_app(stage: StageEnum):
     app.include_router(finance.router)
     app.include_router(files.router)
     app.include_router(documents.router)
+
+    # External-agent access to synced boards: streamable-HTTP MCP at exactly
+    # `/mcp` (its route joins the app's router, so no mount/trailing-slash redirect).
+    board_mcp = create_board_mcp(app)
+    app.router.routes.extend(board_mcp.streamable_http_app().routes)
 
     return app
 

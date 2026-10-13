@@ -117,6 +117,8 @@ import {
   WifiSlashIcon as PhosphorWifiSlashIcon,
   XCircleIcon,
   XIcon,
+  ArrowsOutCardinalIcon,
+  LinkBreakIcon,
 } from "@phosphor-icons/react"
 import { createPhosphorIcon, createReactIcon } from "./icon-base"
 import type { AppIconComponent, AppIconName } from "./types"
@@ -197,6 +199,8 @@ export const LoaderRefreshIcon = createPhosphorIcon(ArrowsClockwiseIcon)
 export const LearnStarterIcon = createPhosphorIcon(GraduationCapIcon)
 export const LinkIcon = createPhosphorIcon(LinkSimpleIcon)
 export const LinksIcon = createPhosphorIcon(LinkSimpleHorizontalIcon)
+export const UnlinkIcon = createPhosphorIcon(LinkBreakIcon)
+export const MoveNoteIcon = createPhosphorIcon(ArrowsOutCardinalIcon)
 export const ListViewIcon = createPhosphorIcon(ListGlyphIcon)
 export const ListTreeIcon = createPhosphorIcon(TreeStructureIcon)
 export const Loader2Icon = createPhosphorIcon(SpinnerGapIcon)

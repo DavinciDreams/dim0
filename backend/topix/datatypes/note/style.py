@@ -32,6 +32,7 @@ class NodeType(StrEnum):
     MINI_APP = "mini-app"
     INK = "ink"
     APPLET = "applet"
+    DIAGRAM = "diagram"
 
 
 class StrokeStyle(StrEnum):

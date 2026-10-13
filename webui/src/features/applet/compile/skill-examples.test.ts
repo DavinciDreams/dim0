@@ -13,7 +13,8 @@ import { compileApplet, validateApplet } from "./index"
 /** Extract fenced code blocks whose body is a full `<Widget>` applet. */
 function appletExamples(md: string): string[] {
   const blocks: string[] = []
-  const fence = /```(?:jsx|tsx|js|ts)?\n([\s\S]*?)```/g
+  // `\r?\n`: Windows checkouts with core.autocrlf read the skill with CRLF endings.
+  const fence = /```(?:jsx|tsx|js|ts)?\r?\n([\s\S]*?)```/g
   let m: RegExpExecArray | null
   while ((m = fence.exec(md)) !== null) {
     const code = m[1].trim()

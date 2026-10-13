@@ -2,6 +2,7 @@ import planSystem from "./plan-system.md?raw"
 import diagramSkill from "./skills/diagram.md?raw"
 import appletSkill from "./skills/applet.md?raw"
 import htmlWidgetSkill from "./skills/html-widget.md?raw"
+import typedDiagramSkill from "./skills/typed-diagram.md?raw"
 import { renderPrompt } from "./render"
 
 
@@ -22,6 +23,7 @@ export const SKILLS = {
   learn_generate_diagram: diagramSkill,
   learn_generate_applet: appletSkill,
   learn_generate_html_widget: htmlWidgetSkill,
+  learn_generate_architecture_diagram: typedDiagramSkill,
 } as const
 
 

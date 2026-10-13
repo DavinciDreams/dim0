@@ -48,4 +48,10 @@ export const learnGenerateHtmlWidget = skillTool(
 )
 
 
-export const skillTools: Tool[] = [learnGenerateDiagram, learnGenerateApplet, learnGenerateHtmlWidget]
+export const learnGenerateArchitectureDiagram = skillTool(
+  "learn_generate_architecture_diagram",
+  'REQUIRED before authoring a typed diagram note (system architecture, request/message sequence, or swimlane workflow/process): call this first, then write one with write_note(note_type="diagram").',
+)
+
+
+export const skillTools: Tool[] = [learnGenerateDiagram, learnGenerateApplet, learnGenerateHtmlWidget, learnGenerateArchitectureDiagram]

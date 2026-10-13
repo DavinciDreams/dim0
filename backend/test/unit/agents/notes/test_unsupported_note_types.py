@@ -71,6 +71,17 @@ async def test_applet_note_type_is_rejected_without_persisting(make_tool):
     store.add_notes.assert_not_awaited()
 
 
+@pytest.mark.parametrize("make_tool", [_make_write_note, _make_create_note])
+async def test_diagram_note_type_is_rejected_without_persisting(make_tool):
+    """A diagram write fails (only the browser agent validates diagram specs) and stores nothing."""
+    store = _DummyGraphStore()
+
+    result = await _invoke(make_tool(store), content='{"diagram_type": "architecture"}', note_type="diagram")
+
+    assert 'note_type="diagram" is not supported' in str(result)
+    store.add_notes.assert_not_awaited()
+
+
 async def test_supported_note_type_still_persists():
     """The guard doesn't affect ordinary types."""
     store = _DummyGraphStore()

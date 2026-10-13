@@ -1,5 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query"
 import {
+  asEdgeId,
+  asNodeId,
   type CanvasStore,
   type Op,
 } from "@canvas-harness/core"
@@ -7,8 +9,11 @@ import { getBoardLink, getBoardNote } from "@/features/board/api/get-board"
 import { makeBatch } from "@/features/board/harness/make-batch"
 import type {
   CreateNoteOutput,
+  DeleteNoteOutput,
   EditNoteOutput,
   LinkNotesOutput,
+  MoveNoteOutput,
+  UnlinkNotesOutput,
   WriteNoteOutput,
 } from "@/features/agent/types/tool-outputs"
 import type { Link } from "@/features/board/types/link"
@@ -17,7 +22,11 @@ import { linkToEdge } from "../convert/link-to-edge"
 import { noteToNode } from "../convert/note-to-node"
 
 
-export type NoteToolOutput = CreateNoteOutput | WriteNoteOutput | EditNoteOutput
+export type NoteToolOutput = CreateNoteOutput | WriteNoteOutput | EditNoteOutput | MoveNoteOutput
+
+
+/** A server agent removal (note or link) to mirror onto the canvas. */
+export type RemovalToolOutput = DeleteNoteOutput | UnlinkNotesOutput
 
 
 /** Apply a list of ops to the store as a single `remote`-origin batch. */
@@ -126,4 +135,36 @@ export const applyLinkOutput = async (
   applyRemoteBatch(store, [op])
 
   return output.linkId
+}
+
+
+/**
+ * Mirror a server agent deletion onto the harness store as a `remote` batch
+ * (the server already persisted it). A removed note takes its incident edges
+ * with it. No-op when the entity isn't on the canvas (other layer, or the
+ * collab peer-op already removed it).
+ */
+export const applyRemovalOutput = (
+  store: CanvasStore,
+  activeBoardId: string,
+  output: RemovalToolOutput,
+): void => {
+  if (output.graphUid !== activeBoardId) return
+  if (output.type === "unlink_notes") {
+    const edge = store.getEdge(asEdgeId(output.linkId))
+    if (edge) applyRemoteBatch(store, [{ type: "edge.remove", edge }])
+    return
+  }
+  const node = store.getNode(asNodeId(output.noteId))
+  if (!node) return
+  // Free-floating edge ends carry no nodeId — only attached ends can be incident.
+  const attachedTo = (end: unknown): string | undefined =>
+    end && typeof end === "object" && "nodeId" in end ? String((end as { nodeId: unknown }).nodeId) : undefined
+  const incident = store
+    .getAllEdges()
+    .filter((e) => attachedTo(e.source) === output.noteId || attachedTo(e.target) === output.noteId)
+  applyRemoteBatch(store, [
+    ...incident.map((edge): Op => ({ type: "edge.remove", edge })),
+    { type: "node.remove", node },
+  ])
 }

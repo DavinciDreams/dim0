@@ -16,6 +16,9 @@ class AgentToolName(StrEnum):
     EDIT_NOTE = "edit_note"
     GET_NOTE = "get_note"
     LINK_NOTES = "link_notes"
+    DELETE_NOTE = "delete_note"
+    MOVE_NOTE = "move_note"
+    UNLINK_NOTES = "unlink_notes"
 
     NAVIGATE = "navigate"
 
@@ -61,7 +64,10 @@ tool_descriptions = {
         "Apply a targeted text edit to a note field using note_id, field, "
         "a unique substring anchor old, replacement new, and optional replace_all"
     ),
-    AgentToolName.GET_NOTE: "Read an existing note by note_id to inspect its current label, content, and note type",
+    AgentToolName.GET_NOTE: "Read an existing note by note_id to inspect its current label, content, note type, and version",
+    AgentToolName.DELETE_NOTE: "Delete a note and its links by note_id, with an optional expected_version guard",
+    AgentToolName.MOVE_NOTE: "Move an existing note to an explicit x/y canvas position",
+    AgentToolName.UNLINK_NOTES: "Remove a link between two notes by link_id",
     AgentToolName.LINK_NOTES: (
         "Create a directed arrow from one note to another using source_id and target_id, "
         "with an optional short label on the edge"

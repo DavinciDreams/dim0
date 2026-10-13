@@ -236,6 +236,27 @@ Port comes from `APP_PORT` in `.env` (defaults to `5175`).
 
 `.env.sample` is the canonical list - ports and origins, model provider keys, search and image provider keys, local service settings, backend auth and tracing. Use it as a checklist when setting things up.
 
+### Optional keyless web search
+
+In the browser agent, open **Settings → Web search → Parallel (keyless)**.
+This explicitly selects the anonymous [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+endpoint. No search API key and no Dim0 sign-in are needed; model inference
+still needs its own configuration. Free use has rate limits.
+
+The browser calls `search.parallel.ai` directly (it sends
+`Access-Control-Allow-Origin: *`) and desktop does the same through Tauri's
+plugin-http, so a local board searches the web with no call to a Dim0 backend.
+`/ai/search` stays as a fallback for a client that cannot reach the provider;
+on a hosted deploy that relay requires a signed-in user, a self-hosted one
+leaves it open behind a per-IP limit. Offline the engine resolves to `off` and
+the `web_search` tool is hidden, like every other unreachable provider.
+
+Perplexity remains the default, and saved provider keys and selections are
+preserved. Search returns source URLs, titles and excerpts through the existing
+`web_search` tool and confirmation gate. The `fetch` tool is unchanged. Recency
+is sent as a preference in the search objective, not a strict date filter, and
+the anonymous endpoint controls excerpt size.
+
 ## Docker
 
 Compose stack with Makefile shortcuts.

@@ -13,6 +13,15 @@ export const COMPONENTS = new Set([
   "Graph",
   "Map",
   "Table",
+  // Adapted from the Generous catalog (render/generous/).
+  "Mermaid",
+  "Latex",
+  "Markdown",
+  "CodeBlock",
+  "JsonViewer",
+  "Stats",
+  "ProgressTracker",
+  "Timeline",
 ])
 
 

@@ -59,8 +59,8 @@ def build_default_note_style(note_type: NodeType) -> Style:
         style.roughness = 0
         style.roundness = 1
         style.stroke_color = "#00000000"
-    elif note_type == NodeType.APPLET:
-        # Mirrors the webui `createDefaultStyle` applet case (rose-pine card).
+    elif note_type in {NodeType.APPLET, NodeType.DIAGRAM}:
+        # Mirrors the webui `createDefaultStyle` applet/diagram case (rose-pine card).
         style.background_color = "#faf4ed"
         style.font_family = FontFamily.SANS_SERIF
         style.font_size = FontSize.S
@@ -102,8 +102,8 @@ def get_default_note_size(note_type: NodeType) -> tuple[int, int]:  # noqa: C901
         return 560, 360
     if note_type == NodeType.WIDGET:
         return 800, 500
-    if note_type in {NodeType.MINI_APP, NodeType.APPLET}:
-        # Keep in sync with DEFAULT_MINI_APP_* / DEFAULT_APPLET_* in webui note.ts.
+    if note_type in {NodeType.MINI_APP, NodeType.APPLET, NodeType.DIAGRAM}:
+        # Keep in sync with DEFAULT_MINI_APP_* / DEFAULT_APPLET_* / DEFAULT_DIAGRAM_* in webui note.ts.
         # Tablet-portrait proportions; paired with the 1200px auto-grow
         # cap in webui's MiniAppView, a max-grown card reads at 1:1.67
         # instead of a thin column.

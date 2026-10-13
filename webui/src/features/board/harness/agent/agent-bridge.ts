@@ -1,5 +1,5 @@
 import type { LinkNotesOutput } from "@/features/agent/types/tool-outputs"
-import type { ApplyNoteResult, NoteToolOutput } from "./apply-tool-output"
+import type { ApplyNoteResult, NoteToolOutput, RemovalToolOutput } from "./apply-tool-output"
 
 
 /**
@@ -15,10 +15,12 @@ import type { ApplyNoteResult, NoteToolOutput } from "./apply-tool-output"
  * patterns.
  */
 export type AgentBridge = {
-  /** Apply a note tool output (create / write / edit). Returns null when skipped. */
+  /** Apply a note tool output (create / write / edit / move). Returns null when skipped. */
   applyNoteOutput: (output: NoteToolOutput) => Promise<ApplyNoteResult | null>
   /** Apply a link tool output. Returns the linkId on success, null when skipped. */
   applyLinkOutput: (output: LinkNotesOutput) => Promise<string | null>
+  /** Mirror a note deletion or link removal onto the canvas. */
+  applyRemovalOutput: (output: RemovalToolOutput) => void
 }
 
 
