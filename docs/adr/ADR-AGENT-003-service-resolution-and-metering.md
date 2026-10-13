@@ -66,3 +66,27 @@ that idempotent under retries and parallel tool calls.
 ## Verify
 `grep -rn "preferManaged\|managedAllowed\|byok" webui/src/features/agent/engine/services/resolve.ts` — the precedence matrix lives in one pure function.
 `grep -rn "X-Run-Id\|set_if_absent\|_meter_run\|meter_run_managed" backend/topix/api/router/ai.py` — run-id dedup + the two metering deps (only `meter_run` has the `X-Provider-Key` escape hatch).
+
+## Optional keyless search
+
+A search engine in `KEYLESS_SEARCH_ENGINES` (today: `parallel`) needs no key from
+anyone, so an explicit selection of one resolves to **`keyless`** before the
+BYOK/managed/off precedence — but only while the network is reachable, so it
+falls to `off` offline like any other unreachable provider. Other services and
+search selections keep their existing precedence.
+
+- **Direct, not relayed (MUST):** `search.parallel.ai/mcp` sends
+  `Access-Control-Allow-Origin: *`, so a keyless engine is the one non-LLM
+  service the client calls **directly** — browser `fetch`, desktop plugin-http.
+  A local board therefore searches with zero calls to our backend.
+- **`/ai/search` is a fallback only:** used when the direct call cannot get
+  through. It charges no quota (there is no key of ours to spend), so on a
+  hosted deploy (`is_billing_active()`) it **requires a signed-in user** — a
+  per-IP window alone is forgeable through `X-Forwarded-For`, and relaying every
+  user's search from one IP would burn one shared anonymous allowance. A
+  self-hosted deploy keeps it open behind that per-IP window.
+- **Wire shape:** Streamable HTTP is JSON-RPC over POST, so one `tools/call` is
+  the whole exchange — no MCP SDK, no `initialize`, no session to delete, and
+  the same handful of lines on both sides. The request id is a throwaway: an
+  internal run id must never become an upstream session handle on a path whose
+  whole point is anonymity.
