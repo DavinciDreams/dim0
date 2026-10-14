@@ -27,11 +27,11 @@ export function Mermaid(props: MermaidProps) {
 }
 
 
-/** The applet `<Markdown content>` component (sanitized GFM + math + code). */
-export function Markdown({ content }: MarkdownProps) {
+/** The applet `<Markdown content omitImages?>` component (sanitized GFM + math + code). */
+export function Markdown({ content, omitImages }: MarkdownProps) {
   return (
     <Suspense fallback={<Loading />}>
-      <MarkdownView content={typeof content === "string" ? content : ""} />
+      <MarkdownView content={typeof content === "string" ? content : ""} omitImages={omitImages === true} />
     </Suspense>
   )
 }

@@ -1,6 +1,8 @@
 // Prop shapes for the applet components adapted from Generous. Values arrive from
 // agent-authored applet source, so every field is treated as possibly malformed.
 
+import type { ReactNode } from "react"
+
 
 export interface MermaidProps {
   diagram: string
@@ -16,6 +18,8 @@ export interface LatexProps {
 
 export interface MarkdownProps {
   content: string
+  /** Drop images instead of fetching them (for untrusted imported content). */
+  omitImages?: boolean
 }
 
 
@@ -38,6 +42,8 @@ export interface Stat {
   /** Percentage change, e.g. 12.5 or -3. */
   change?: number
   changeLabel?: string
+  /** Fixed decimals for the change percentage (default: shown as given). */
+  changeDecimals?: number
   /** Direction the change should read as good; defaults to "up". */
   goodDirection?: "up" | "down"
   sparkline?: number[]
@@ -71,4 +77,28 @@ export interface TimelineEvent {
 
 export interface TimelineProps {
   events: TimelineEvent[]
+}
+
+
+export interface SvgPreviewProps {
+  /** SVG document source; rebuilt under the allowlist policy, never injected. */
+  svg: string
+  title?: string
+  /** Maximum width: px number, or a `120` / `120px` / `50%` / `20rem` string. */
+  width?: number | string
+}
+
+
+export interface BadgeProps {
+  variant?: "default" | "secondary" | "outline" | "destructive"
+  text?: string
+  children?: ReactNode
+  className?: string
+}
+
+
+export interface SeparatorProps {
+  orientation?: "horizontal" | "vertical"
+  decorative?: boolean
+  className?: string
 }

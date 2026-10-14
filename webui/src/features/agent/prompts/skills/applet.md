@@ -47,7 +47,8 @@ Use only these tags. Anything else ("unknown component") rejects.
 - `<Card className?>`, `<CardHeader>`, `<CardTitle>`, `<CardContent>`, `<CardFooter>` — the container family.
 - `<Button variant? size? onClick?>` — variants: `default | destructive | outline | secondary | ghost | link`.
 - `<Chart>`, `<Graph>`, `<Map>`, `<Table>` — see signatures below.
-- `<Mermaid>`, `<Latex>`, `<Markdown>`, `<CodeBlock>`, `<JsonViewer>`, `<Stats>`, `<ProgressTracker>`, `<Timeline>` — content blocks; see signatures below.
+- `<Mermaid>`, `<Latex>`, `<Markdown>`, `<CodeBlock>`, `<JsonViewer>`, `<Stats>`, `<ProgressTracker>`, `<Timeline>`, `<SVGPreview>` — content blocks; see signatures below.
+- `<Badge>`, `<Separator>` — small inline pieces; see signatures below.
 
 ### HTML intrinsics (whitelisted)
 `div span p ul ol li h1`–`h6` · `table thead tbody tr th td` · `b i em strong small code pre kbd br hr` · `img` · `input textarea select option label button`.
@@ -126,16 +127,17 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
 - `height`: px (default 220).
 
 ### `<Graph nodes edges layout? directed? root? viewBox? height? />`
-- `nodes`: `[{ id, label?, sublabel?, color?, x?, y? }]`; `edges`: `[{ a, b, label?, color? }]` (`a → b`).
+- `nodes`: `[{ id, label?, sublabel?, color?, x?, y? }]`; `edges`: `[{ a, b, label?, color?, dashed? }]` (`a → b`; `dashed` for a contested or weak link).
 - `layout`: `"force"` (default, auto-arranges networks) · `"tree"` (top-down hierarchy; set `root`) · `"manual"` (you supply `x`/`y`). `directed` draws arrowheads.
 
 ### `<Map data? markers? color? height? />`
 - `data`: `[{ id, value?, color? }]` — `id` is a country's English name (`"France"`) or ISO numeric code; `value` shades `color` by magnitude.
 - `markers`: `[{ lat, lng, label?, color?, r? }]`. Geometry is built in — supply data only.
 
-### `<Table columns rows sortable? className? />`
-- `columns`: `["name", "score"]` or `[{ key, label? }, …]`. `rows`: `[{ name: …, score: … }, …]`.
-- `sortable` makes headers click-to-sort.
+### `<Table columns rows sortable? title? striped? compact? bordered? pageSize? cellFormat? emptyText? className? />`
+- `columns`: `["name", "score"]` or `[{ key, label?, align? }, …]` (`align`: `"left" | "center" | "right"`). `rows`: `[{ name: …, score: … }, …]`.
+- `sortable` makes headers click-to-sort. `title` adds a heading; `striped` / `compact` / `bordered` restyle the rows.
+- `pageSize` (1–500) paginates with prev/next controls. `cellFormat="readable"` shows empty cells as `—`, booleans as Yes/No and lists/records as joined text (default `"plain"` prints the raw value). `emptyText` replaces an empty body.
 
 ### `<Mermaid diagram height? />`
 - `diagram`: a Mermaid definition string (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, mindmap, …). Use a template literal for multi-line source. Syntax errors render inline — keep it valid.
@@ -143,18 +145,26 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
 ### `<Latex expression displayMode? />`
 - `expression`: TeX without `$` delimiters, e.g. `"E = mc^2"`. Backslashes must be doubled inside a string literal (`"\\frac{a}{b}"`). `displayMode={false}` for inline size.
 
-### `<Markdown content />` · `<CodeBlock code language? />`
-- `Markdown` renders GFM (lists, tables, links, `$math$`). `CodeBlock` highlights `code` (`language`: `"python"`, `"ts"`, `"sql"`, …).
+### `<Markdown content omitImages? />` · `<CodeBlock code language? />`
+- `Markdown` renders GFM (lists, tables, links, `$math$`); `omitImages` shows an `[Image omitted]` note instead of loading images. `CodeBlock` highlights `code` (`language`: `"python"`, `"ts"`, `"sql"`, …).
 
 ### `<JsonViewer data expandDepth? />`
 - `data`: any JSON value, shown as a collapsible tree; `expandDepth` levels open by default (1).
 
 ### `<Stats stats columns? />`
-- `stats`: `[{ label, value, change?, changeLabel?, goodDirection?, sparkline? }]` — `change` is a percent (`12.5`, `-3`); `goodDirection: "down"` flips the color for metrics where lower is better; `sparkline` is a number array. `columns`: 1–4 (default 3).
+- `stats`: `[{ label, value, change?, changeLabel?, changeDecimals?, goodDirection?, sparkline? }]` — `change` is a percent (`12.5`, `-3`), `changeDecimals` fixes its decimals; `goodDirection: "down"` flips the color for metrics where lower is better; `sparkline` is a number array. `columns`: 1–4 (default 3).
 
 ### `<ProgressTracker steps />` · `<Timeline events />`
 - `steps`: `[{ label, status?, description? }]`, `status`: `"done" | "active" | "pending" | "error"`.
 - `events`: `[{ date, title, description? }]`, shown in the given order.
+
+### `<SVGPreview svg title? width? />`
+- `svg`: a complete SVG document string (`<svg viewBox="…">…</svg>`), up to 20,000 characters. It is rebuilt from an allowlist of static drawing elements (shapes, paths, text, gradients, markers, `<use href="#local">`); scripts, event handlers, `<image>`, `<a>`, `<foreignObject>`, `class` and external `url(…)` references are dropped, and a DOCTYPE/ENTITY is refused. Give it a `viewBox` so it scales to the widget.
+- `title`: caption + accessible label. `width`: maximum width (`320`, `"320px"`, `"50%"`, `"20rem"`); height follows the drawing's aspect ratio.
+
+### `<Badge variant? text?>` · `<Separator orientation? />`
+- `Badge`: a compact status label, `<Badge variant="outline">beta</Badge>` (or `text="beta"`). `variant`: `"default" | "secondary" | "outline" | "destructive"` (default `"secondary"`).
+- `Separator`: a thin rule; `orientation="vertical"` inside a flex row.
 
 ---
 

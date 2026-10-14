@@ -167,6 +167,7 @@ function positionEdge(
     y2: pb.y,
     label: e.label ?? null,
     color: resolveColor(e.color ?? DEFAULT_EDGE_COLOR),
+    ...(e.dashed === true ? { dashed: true } : {}),
   }
 }
 
