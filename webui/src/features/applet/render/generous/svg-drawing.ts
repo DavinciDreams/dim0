@@ -57,12 +57,30 @@ function rebuild(source: Element, prefix: string, budget: { remaining: number })
 }
 
 
+/**
+ * Parse as XML. Hand-written SVG often omits `xmlns`, which in XML leaves every
+ * element outside the SVG namespace (so nothing would be drawn); such a root is
+ * re-parsed with the SVG default namespace declared. Galaxy Brain's renderer
+ * refuses these instead — the one deliberate divergence, since the contract's own
+ * pattern accepts `<svg viewBox="…">` without a namespace.
+ */
+function parseSvg(source: string): Document {
+  const parsed = new DOMParser().parseFromString(source, "image/svg+xml")
+  const root = parsed.documentElement
+  if (!root || root.localName !== "svg" || root.namespaceURI !== null || root.hasAttribute("xmlns")) return parsed
+  const start = /<svg(?=[\s>/])/i.exec(source)
+  if (!start) return parsed
+  const at = start.index + start[0].length
+  return new DOMParser().parseFromString(`${source.slice(0, at)} xmlns="${SVG_NS}"${source.slice(at)}`, "image/svg+xml")
+}
+
+
 /** Build a safe, responsive drawing from `source`, or return why it was refused. */
 export function drawingFrom(source: unknown, prefix: string): SVGElement | string {
   const rejected = screenSvgSource(source)
   if (rejected) return rejected
 
-  const parsed = new DOMParser().parseFromString(source as string, "image/svg+xml")
+  const parsed = parseSvg(source as string)
   if (parsed.getElementsByTagName("parsererror").length > 0) return "SVG could not be read"
   const root = parsed.documentElement
   if (!root || root.localName !== "svg" || root.namespaceURI !== SVG_NS) return "Source is not an SVG document"

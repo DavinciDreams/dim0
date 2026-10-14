@@ -127,6 +127,12 @@ describe("<SVGPreview>", () => {
     expect(container.querySelector('[data-slot="svg-preview"]')!.getAttribute("style")).toBeNull()
   })
 
+  it("draws hand-written SVG that omits xmlns", () => {
+    const drawing = drawingFrom('<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>', "p")
+    expect(typeof drawing).not.toBe("string")
+    expect((drawing as SVGElement).querySelector("circle")?.getAttribute("r")).toBe("4")
+  })
+
   it("drawingFrom reports unreadable XML", () => {
     expect(drawingFrom("<svg><g></svg>", "p")).toBe("SVG could not be read")
   })
