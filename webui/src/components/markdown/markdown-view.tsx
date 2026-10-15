@@ -223,6 +223,16 @@ const components = {
 } satisfies Components
 
 
+/** Stand-in for an image that is deliberately not fetched (untrusted imported content). */
+function OmittedImg({ alt }: React.ImgHTMLAttributes<HTMLImageElement>) {
+  return <span className="italic text-muted-foreground">[Image omitted: {alt || "untitled"}]</span>
+}
+
+
+/** The same map with images replaced by a placeholder — nothing is fetched. */
+const componentsWithoutImages = { ...components, img: OmittedImg } satisfies Components
+
+
 /**
  * Module-level constants so identity stays stable across renders. react-
  * markdown / Streamdown invalidate internal caches when these arrays change
@@ -281,14 +291,15 @@ const Renderer: React.FC<{
   content: string
   isStreaming?: boolean
   shikiThemes: ShikiThemePair
-}> = ({ content, isStreaming, shikiThemes }) => {
+  omitImages?: boolean
+}> = ({ content, isStreaming, shikiThemes, omitImages }) => {
   const normalized = preprocess(content)
 
   return (
     <div>
       <Streamdown
         mode={isStreaming ? "streaming" : "static"}
-        components={components}
+        components={omitImages ? componentsWithoutImages : components}
         shikiTheme={shikiThemes as [BundledTheme, BundledTheme]}
         remarkPlugins={REMARK_PLUGINS as never}
         rehypePlugins={REHYPE_PLUGINS as never}
@@ -307,6 +318,8 @@ const Renderer: React.FC<{
 export interface MarkdownViewProps {
   content: string
   isStreaming?: boolean
+  /** Render images as an "[Image omitted]" note instead of fetching them. */
+  omitImages?: boolean
 }
 
 
@@ -316,7 +329,7 @@ export interface MarkdownViewProps {
  * A React component that renders markdown content with support for GFM, math, and custom styling.
  */
 export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
-  ({ content, isStreaming = false }) => {
+  ({ content, isStreaming = false, omitImages = false }) => {
     const { shikiThemes } = useTheme()
 
     React.useEffect(() => {
@@ -325,10 +338,10 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
 
     return (
       <div className="mk-content w-full min-w-0">
-        <Renderer content={content} isStreaming={isStreaming} shikiThemes={shikiThemes} />
+        <Renderer content={content} isStreaming={isStreaming} shikiThemes={shikiThemes} omitImages={omitImages} />
       </div>
     )
   },
   (prev, next) =>
-    prev.content === next.content && prev.isStreaming === next.isStreaming
+    prev.content === next.content && prev.isStreaming === next.isStreaming && prev.omitImages === next.omitImages
 )

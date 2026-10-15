@@ -22,6 +22,10 @@ export const COMPONENTS = new Set([
   "Stats",
   "ProgressTracker",
   "Timeline",
+  // Added for gb.surface.v1 (Galaxy Brain surfaces) parity (render/generous/).
+  "Badge",
+  "Separator",
+  "SVGPreview",
 ])
 
 

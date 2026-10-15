@@ -30,6 +30,8 @@ import type { LaidOutGraph, PositionedEdge, PositionedNode } from "./graph-types
 // (no ring), mono labels stacked below, edges standing off the node with a large arrowhead.
 const NODE_LABEL_FONT_WEIGHT = 600
 const EDGE_STROKE_WIDTH = 3
+// Dash length (viewBox units) for a `dashed` edge.
+const EDGE_DASH = 10
 const EDGE_LABEL_FONT_SIZE = 12
 // Gap (viewBox units) between the node border and the edge tip / arrowhead, so the
 // line stands off the circle instead of touching it.
@@ -194,10 +196,12 @@ function drawEdge(ctx: CanvasRenderingContext2D, edge: PositionedEdge, directed:
   ctx.strokeStyle = color
   ctx.lineWidth = EDGE_STROKE_WIDTH
   ctx.lineCap = "round"
+  if (edge.dashed) ctx.setLineDash?.([EDGE_DASH, EDGE_DASH * 0.7])
   ctx.beginPath()
   ctx.moveTo(seg.x1, seg.y1)
   ctx.lineTo(seg.x2, seg.y2)
   ctx.stroke()
+  if (edge.dashed) ctx.setLineDash?.([])
   if (directed) drawArrowhead(ctx, seg, color)
 }
 

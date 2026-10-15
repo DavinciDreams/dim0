@@ -7,6 +7,8 @@ declare global {
       miniAppOrigin?: string
       /** Host app origin — read by the iframe runtime, never the host. */
       hostOrigin?: string
+      /** Galaxy Brain origin for importing surfaces; empty hides the integration. */
+      galaxyUrl?: string
     }
   }
 }

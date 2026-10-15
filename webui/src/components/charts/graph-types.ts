@@ -54,6 +54,7 @@ export interface GraphEdge {
   b: string                         // node id
   label?: string                    // text on the edge (weight, capacity, name)
   color?: string                    // stroke — default token: `border`
+  dashed?: boolean                  // dashed stroke (e.g. a contested / weak relation)
 }
 
 
@@ -90,4 +91,5 @@ export interface PositionedEdge {
   y2: number
   label: string | null
   color: string                     // resolved CSS
+  dashed?: boolean                  // stroke dashed rather than solid
 }

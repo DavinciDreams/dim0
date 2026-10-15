@@ -30,6 +30,7 @@ export type ChromeDialog =
   | "image-search"
   | "document-upload"
   | "notes-search"
+  | "galaxy-surface"
 
 
 /**

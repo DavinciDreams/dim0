@@ -47,7 +47,8 @@ Use only these tags. Anything else ("unknown component") rejects.
 - `<Card className?>`, `<CardHeader>`, `<CardTitle>`, `<CardContent>`, `<CardFooter>` — the container family.
 - `<Button variant? size? onClick?>` — variants: `default | destructive | outline | secondary | ghost | link`.
 - `<Chart>`, `<Graph>`, `<Map>`, `<Table>` — see signatures below.
-- `<Mermaid>`, `<Latex>`, `<Markdown>`, `<CodeBlock>`, `<JsonViewer>`, `<Stats>`, `<ProgressTracker>`, `<Timeline>` — content blocks; see signatures below.
+- `<Mermaid>`, `<Latex>`, `<Markdown>`, `<CodeBlock>`, `<JsonViewer>`, `<Stats>`, `<ProgressTracker>`, `<Timeline>`, `<SVGPreview>` — content blocks; see signatures below.
+- `<Badge>`, `<Separator>` — small inline pieces; see signatures below.
 
 ### HTML intrinsics (whitelisted)
 `div span p ul ol li h1`–`h6` · `table thead tbody tr th td` · `b i em strong small code pre kbd br hr` · `img` · `input textarea select option label button`.
@@ -126,16 +127,17 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
 - `height`: px (default 220).
 
 ### `<Graph nodes edges layout? directed? root? viewBox? height? />`
-- `nodes`: `[{ id, label?, sublabel?, color?, x?, y? }]`; `edges`: `[{ a, b, label?, color? }]` (`a → b`).
+- `nodes`: `[{ id, label?, sublabel?, color?, x?, y? }]`; `edges`: `[{ a, b, label?, color?, dashed? }]` (`a → b`; `dashed` for a contested or weak link).
 - `layout`: `"force"` (default, auto-arranges networks) · `"tree"` (top-down hierarchy; set `root`) · `"manual"` (you supply `x`/`y`). `directed` draws arrowheads.
 
 ### `<Map data? markers? color? height? />`
 - `data`: `[{ id, value?, color? }]` — `id` is a country's English name (`"France"`) or ISO numeric code; `value` shades `color` by magnitude.
 - `markers`: `[{ lat, lng, label?, color?, r? }]`. Geometry is built in — supply data only.
 
-### `<Table columns rows sortable? className? />`
-- `columns`: `["name", "score"]` or `[{ key, label? }, …]`. `rows`: `[{ name: …, score: … }, …]`.
-- `sortable` makes headers click-to-sort.
+### `<Table columns rows sortable? title? striped? compact? bordered? pageSize? cellFormat? emptyText? className? />`
+- `columns`: `["name", "score"]` or `[{ key, label?, align? }, …]` (`align`: `"left" | "center" | "right"`). `rows`: `[{ name: …, score: … }, …]`.
+- `sortable` makes headers click-to-sort. `title` adds a heading; `striped` / `compact` / `bordered` restyle the rows.
+- `pageSize` (1–500) paginates with prev/next controls. `cellFormat="readable"` shows empty cells as `—`, booleans as Yes/No and lists/records as joined text (default `"plain"` prints the raw value). `emptyText` replaces an empty body.
 
 ### `<Mermaid diagram height? />`
 - `diagram`: a Mermaid definition string (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, mindmap, …). Use a template literal for multi-line source. Syntax errors render inline — keep it valid.
@@ -143,18 +145,38 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
 ### `<Latex expression displayMode? />`
 - `expression`: TeX without `$` delimiters, e.g. `"E = mc^2"`. Backslashes must be doubled inside a string literal (`"\\frac{a}{b}"`). `displayMode={false}` for inline size.
 
-### `<Markdown content />` · `<CodeBlock code language? />`
-- `Markdown` renders GFM (lists, tables, links, `$math$`). `CodeBlock` highlights `code` (`language`: `"python"`, `"ts"`, `"sql"`, …).
+### `<Markdown content omitImages? />` · `<CodeBlock code language? />`
+- `Markdown` renders GFM (lists, tables, links, `$math$`); `omitImages` shows an `[Image omitted]` note instead of loading images. `CodeBlock` highlights `code` (`language`: `"python"`, `"ts"`, `"sql"`, …).
 
 ### `<JsonViewer data expandDepth? />`
 - `data`: any JSON value, shown as a collapsible tree; `expandDepth` levels open by default (1).
 
 ### `<Stats stats columns? />`
-- `stats`: `[{ label, value, change?, changeLabel?, goodDirection?, sparkline? }]` — `change` is a percent (`12.5`, `-3`); `goodDirection: "down"` flips the color for metrics where lower is better; `sparkline` is a number array. `columns`: 1–4 (default 3).
+- `stats`: `[{ label, value, change?, changeLabel?, changeDecimals?, goodDirection?, sparkline? }]` — `change` is a percent (`12.5`, `-3`), `changeDecimals` fixes its decimals; `goodDirection: "down"` flips the color for metrics where lower is better; `sparkline` is a number array. `columns`: 1–4 (default 3).
 
-### `<ProgressTracker steps />` · `<Timeline events />`
+### `<ProgressTracker steps />`
 - `steps`: `[{ label, status?, description? }]`, `status`: `"done" | "active" | "pending" | "error"`.
-- `events`: `[{ date, title, description? }]`, shown in the given order.
+
+### `<Timeline events|table eras? title? height? />` — zoomable picture timeline
+- A horizontal time axis that pans (drag) and zooms (wheel / pinch / buttons) from days to billions of years. Each event is a card on a stem: image on top when `media` is set, title, subtitle, date; coloured by `category`. Cards stack by `importance` — 5 sits large and in front, 1 small and far back, and the least important appear only as you zoom in. Hover previews; click (or Enter) opens details with the full text, image credit and a "read more" link. Category / group / tag filters and a search box appear automatically.
+- Give **exactly one** of `events` or `table`. Put them in `data` (bare names, as always). Up to 500 events and 50 eras; text is plain (no HTML/markdown).
+- `events`: `[{ id, title, start, end?, subtitle?, description?, dateLabel?, importance?, category?, group?, tags?, media?, link?, style? }]`
+  - `start` / `end`: `{ year, month?, day?, precision? }` — `year` is an integer, negative for BCE (`-500` = 500 BCE, `-66000000` = 66 million years ago). `precision`: `"billion-years" | "million-years" | "millennium" | "century" | "decade" | "year" | "month" | "day"` (inferred from the parts when omitted). An `end` draws the event as a period bar along the axis.
+  - `dateLabel` overrides the shown date ("c. 1500", "Spring 1944"). `importance`: 1–5 (default 3). `category` picks the colour (chart-1…5 in order of first appearance; eras with the same category share it). `group`: 2–6 distinct groups get their own lanes. `tags`: strings for filtering.
+  - `media`: `{ url, caption?, credit?, alt? }` (an image; http(s) only). `link`: `{ url, label? }` (http(s) only; opens in a new tab).
+  - `style`: `{ card?, color?, font? }` — `card`: `"classic"` (title band + subtitle band + image, default) `| "rounded" | "note"` (paper note; the description is the body) `| "image"` (image fills the card) `| "dark"`; `color`: `"chart-1"`…`"chart-5" | "primary" | "secondary" | "muted" | "accent" | "destructive"` or `"#RRGGBB"` (text colour is picked for contrast); `font`: `"sans" | "serif" | "script" | "mono" | "display"`.
+- `table`: spreadsheet rows instead of `events` (e.g. cells copied from a sheet) — `{ columns: ["Name", "Born", …], rows: [["Ada", "1815", …], …], map: { title: "Name", start: "Born", end?, id?, subtitle?, description?, dateLabel?, importance?, category?, group?, tags?, image?, imageCaption?, imageCredit?, link?, linkLabel?, color? } }`. `map` values are column names. Date cells: a year number, `"1850"`, `"1850-06"`, `"1850-06-15"` or `"1850/06/15"` (a trailing time is ignored), `"-500"`, `"500 BCE"` / `"500 BC"`, `"AD 800"` / `"800 CE"`, `"66 million years ago"` (thousand / million / billion), and any of these after `"c."` / `"circa"` (shown as written). `tags` cells are comma-separated. Rows without a title or a readable start are skipped; repeated ids get `-<row>` appended.
+- `eras`: `[{ title, start, end, category?, color? }]` — shaded, labelled bands along the bottom.
+- `height`: stage height in px, 160–1600 (default 440).
+- The old `events: [{ date, title, description? }]` shape (no `start`) still renders as a simple vertical list.
+
+### `<SVGPreview svg title? width? />`
+- `svg`: a complete SVG document string (`<svg viewBox="…">…</svg>`), up to 20,000 characters. It is rebuilt from an allowlist of static drawing elements (shapes, paths, text, gradients, markers, `<use href="#local">`); scripts, event handlers, `<image>`, `<a>`, `<foreignObject>`, `class` and external `url(…)` references are dropped, and a DOCTYPE/ENTITY is refused. Give it a `viewBox` so it scales to the widget.
+- `title`: caption + accessible label. `width`: maximum width (`320`, `"320px"`, `"50%"`, `"20rem"`); height follows the drawing's aspect ratio.
+
+### `<Badge variant? text?>` · `<Separator orientation? />`
+- `Badge`: a compact status label, `<Badge variant="outline">beta</Badge>` (or `text="beta"`). `variant`: `"default" | "secondary" | "outline" | "destructive"` (default `"secondary"`).
+- `Separator`: a thin rule; `orientation="vertical"` inside a flex row.
 
 ---
 
@@ -324,6 +346,22 @@ Actions appear **only** in event handlers (`onClick`, `onChange`, `onKeyDown`, `
     <CardContent>
       <Table columns={["name", "score"]} rows={rows} sortable />
     </CardContent>
+  </Card>
+</Widget>
+```
+
+### Picture timeline (importance, categories, media, links, styles, eras)
+```jsx
+<Widget data={{
+  events: [
+    { id: "meninas", title: "Las Meninas", subtitle: "Velázquez", start: { year: 1656 }, importance: 4, category: "Painting", tags: ["Baroque"], style: { card: "image" }, media: { url: "https://upload.wikimedia.org/wikipedia/commons/9/99/Las_Meninas_01.jpg", credit: "Museo del Prado" } },
+    { id: "opening", title: "The Prado opens", start: { year: 1819, month: 11, day: 19 }, importance: 5, category: "Museum", description: "Opened to the public with 311 Spanish paintings.", link: { url: "https://en.wikipedia.org/wiki/Museo_del_Prado", label: "Read more" } },
+    { id: "war", title: "Collection evacuated", start: { year: 1936 }, end: { year: 1939 }, importance: 3, category: "Museum", style: { card: "note", font: "serif" }, description: "The paintings were moved to Valencia and Geneva." }
+  ],
+  eras: [{ title: "Bourbon Restoration", start: { year: 1874 }, end: { year: 1931 }, color: "chart-3" }]
+}}>
+  <Card className="p-4 max-w-3xl">
+    <Timeline title="Museo del Prado" events={events} eras={eras} height={460} />
   </Card>
 </Widget>
 ```

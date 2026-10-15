@@ -12,6 +12,8 @@ VITE_BILLING_ENABLED="${VITE_BILLING_ENABLED:-false}"
 # trips the mount's guard — which is what a stale localhost:5001 default did.
 VITE_MINI_APP_ORIGIN="${VITE_MINI_APP_ORIGIN:-}"
 VITE_HOST_ORIGIN="${VITE_HOST_ORIGIN:-http://localhost:3000}"
+# Galaxy Brain origin for the surface integration; empty hides it.
+VITE_GALAXY_URL="${VITE_GALAXY_URL:-}"
 
 # Generate the runtime config into the single frontend bundle. index.html loads
 # /config.js before main.tsx, so the values are on window.__APP_CONFIG__ by the
@@ -26,6 +28,7 @@ sed -e "s|\${API_ORIGIN}|${API_ORIGIN}|g" \
     -e "s|\${VITE_BILLING_ENABLED}|${VITE_BILLING_ENABLED}|g" \
     -e "s|\${VITE_MINI_APP_ORIGIN}|${VITE_MINI_APP_ORIGIN}|g" \
     -e "s|\${VITE_HOST_ORIGIN}|${VITE_HOST_ORIGIN}|g" \
+    -e "s|\${VITE_GALAXY_URL}|${VITE_GALAXY_URL}|g" \
     /app/config.template.js > /app/dist/config.js
 
 [ -d /app/dist/mini-app ] && cp /app/dist/config.js /app/dist/mini-app/config.js

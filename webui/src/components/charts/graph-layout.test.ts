@@ -444,3 +444,21 @@ describe("layoutGraph — directed flag", () => {
     expect(g.directed).toBe(true)
   })
 })
+
+
+describe("layoutGraph — dashed edges", () => {
+  it("carries dashed: true through and omits it otherwise", () => {
+    const g = layoutGraph({
+      nodes: [
+        { id: "A", x: 0, y: 0 },
+        { id: "B", x: 50, y: 0 },
+      ],
+      edges: [
+        { a: "A", b: "B", dashed: true },
+        { a: "B", b: "A" },
+      ],
+    })
+    expect(g.edges[0].dashed).toBe(true)
+    expect(g.edges[1].dashed).toBeUndefined()
+  })
+})

@@ -8,6 +8,8 @@ import { resolveAgentLlm } from "@/features/agent/engine/services/local-llm"
 import { collectSourceUrls, makeWebSearchTool, resolveSearchClient } from "@/features/agent/engine/web-search"
 import { makeCodeInterpreterTool, resolveCodeClient } from "@/features/agent/engine/code-interpreter"
 import { makeFetchTool, resolveFetchClient } from "@/features/agent/engine/fetch-url"
+import { connectedGalaxyClient } from "@/features/galaxy/galaxy-client"
+import { makeGalaxyTools } from "@/features/galaxy/galaxy-tools"
 import { postProcessUrlCitations } from "@/features/agent/utils/citations"
 import { isOverQuotaError } from "@/features/agent/engine/services/run"
 import { createFlushGate } from "@/features/agent/utils/stream/throttle"
@@ -402,6 +404,8 @@ export function useLocalSubmitPrompt(boardId: string, syncTranscript = false) {
         const webSearch = resolveSearchClient({ signedIn, runId, engine: searchEngine, byok: searchByok() })
         const code = resolveCodeClient({ signedIn, runId, byokKey: codeByok() })
         const fetchUrl = resolveFetchClient({ signedIn, runId })
+        // Galaxy surfaces: offered only while this deployment's Galaxy is connected.
+        const galaxy = connectedGalaxyClient()
         // Offer doc_search only when the board actually has indexed document chunks.
         // The index rebuilds asynchronously on board load, so a question asked
         // before that resolves would see count() === 0; fall back to the persisted
@@ -421,6 +425,7 @@ export function useLocalSubmitPrompt(boardId: string, syncTranscript = false) {
           ...(code ? [makeCodeInterpreterTool(code)] : []),
           ...(fetchUrl ? [makeFetchTool(fetchUrl)] : []),
           ...(hasDocs && docIndex ? [makeDocSearchTool(docIndex)] : []),
+          ...(galaxy ? makeGalaxyTools(galaxy) : []),
         ]
         // When documents are attached, steer grounding + citation-by-title (titles
         // are unique per board, so a title names exactly one document).

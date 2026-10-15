@@ -1,14 +1,18 @@
-// Lazy wrappers for the heavy Generous-derived applet components: Mermaid (~1 MB)
-// and the markdown renderer load only when an applet first uses them. Fallbacks
+// Lazy wrappers for the heavy Generous-derived applet components: Mermaid (~1 MB),
+// the markdown renderer and the picture timeline load only when an applet first
+// uses them. Fallbacks
 // reserve space and report not-ready so exports never snapshot a blank box.
 
 import { Suspense, lazy } from "react"
 
-import type { CodeBlockProps, MarkdownProps, MermaidProps } from "./types"
+import { TimelineList } from "./progress"
+import { isLegacyListProps } from "./timeline/shape"
+import type { CodeBlockProps, LegacyTimelineProps, MarkdownProps, MermaidProps, TimelineProps } from "./types"
 
 
 const MermaidImpl = lazy(() => import("./mermaid-impl").then((m) => ({ default: m.MermaidImpl })))
 const MarkdownView = lazy(() => import("@/components/markdown/markdown-view").then((m) => ({ default: m.MarkdownView })))
+const TimelineView = lazy(() => import("./timeline/timeline-view").then((m) => ({ default: m.TimelineView })))
 
 
 /** Placeholder shown while a lazy component's chunk loads. */
@@ -27,11 +31,11 @@ export function Mermaid(props: MermaidProps) {
 }
 
 
-/** The applet `<Markdown content>` component (sanitized GFM + math + code). */
-export function Markdown({ content }: MarkdownProps) {
+/** The applet `<Markdown content omitImages?>` component (sanitized GFM + math + code). */
+export function Markdown({ content, omitImages }: MarkdownProps) {
   return (
     <Suspense fallback={<Loading />}>
-      <MarkdownView content={typeof content === "string" ? content : ""} />
+      <MarkdownView content={typeof content === "string" ? content : ""} omitImages={omitImages === true} />
     </Suspense>
   )
 }
@@ -47,6 +51,22 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
   return (
     <Suspense fallback={<Loading />}>
       <MarkdownView content={`${fence}${lang}\n${body}\n${fence}`} />
+    </Suspense>
+  )
+}
+
+
+/**
+ * The applet `<Timeline>`. The contract shape (`events` with `start` dates, or a
+ * `table`) gets the zoomable picture timeline, loaded on first use; the legacy
+ * `{ events: [{ date, title }] }` shape keeps the simple vertical list.
+ */
+export function Timeline(props: TimelineProps) {
+  if (isLegacyListProps(props)) return <TimelineList events={props.events as LegacyTimelineProps["events"]} />
+  const height = typeof props.height === "number" && Number.isFinite(props.height) ? Math.min(1600, Math.max(160, props.height)) + 48 : 488
+  return (
+    <Suspense fallback={<Loading height={height} />}>
+      <TimelineView {...props} />
     </Suspense>
   )
 }

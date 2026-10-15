@@ -34,6 +34,12 @@ Set `VITE_API_URL` for Production and Preview to the public Coolify backend URL,
 without a trailing slash. This is a build-time variable, so redeploy the web UI
 after changing it.
 
+To let people place Galaxy Brain surfaces on boards, also set `VITE_GALAXY_URL`
+to the Galaxy Brain origin (for example `https://galaxy.example.com`). Leave it
+unset to hide the integration. On the Galaxy side, add this web UI's
+`https://<domain>/galaxy/callback` to `DIM0_CONNECT_REDIRECT_URIS`, exactly;
+that list is also what lets the browser call Galaxy across origins.
+
 ## Desktop
 
 Set the GitHub repository variable `API_ORIGIN` to the same public Coolify

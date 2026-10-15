@@ -31,6 +31,14 @@ function Sparkline({ points }: { points: number[] }) {
 }
 
 
+/** A change magnitude, fixed to `decimals` when that is a sane integer. */
+function formatChange(value: number, decimals: unknown): string {
+  return typeof decimals === "number" && Number.isInteger(decimals) && decimals >= 0 && decimals <= 12
+    ? value.toFixed(decimals)
+    : String(value)
+}
+
+
 /** One KPI tile. */
 function StatTile({ stat }: { stat: Stat }) {
   const change = typeof stat.change === "number" && Number.isFinite(stat.change) ? stat.change : undefined
@@ -41,7 +49,7 @@ function StatTile({ stat }: { stat: Stat }) {
       <div className="text-2xl font-semibold tabular-nums">{String(stat.value ?? "")}</div>
       {change !== undefined && (
         <div className={cn("text-xs tabular-nums", good === undefined ? "text-muted-foreground" : good ? "text-chart-2" : "text-destructive")}>
-          {change > 0 ? "▲" : change < 0 ? "▼" : "•"} {Math.abs(change)}%{stat.changeLabel ? ` ${stat.changeLabel}` : ""}
+          {change > 0 ? "▲" : change < 0 ? "▼" : "•"} {formatChange(Math.abs(change), stat.changeDecimals)}%{stat.changeLabel ? ` ${stat.changeLabel}` : ""}
         </div>
       )}
       {Array.isArray(stat.sparkline) && <Sparkline points={stat.sparkline} />}

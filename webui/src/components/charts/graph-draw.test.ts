@@ -141,4 +141,18 @@ describe("drawGraph", () => {
   it("returns true for an empty-but-valid graph (blank is its finished render)", () => {
     expect(drawGraph(mockCtx(), { ...graph, nodes: [], edges: [] }, SIZE)).toBe(true)
   })
+
+  it("dashes a dashed edge and resets the dash afterwards", () => {
+    const ctx = Object.assign(mockCtx(), { setLineDash: vi.fn() })
+    drawGraph(ctx, { ...graph, edges: [{ ...graph.edges[0], dashed: true }] }, SIZE)
+    const calls = (ctx.setLineDash as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls[0][0].length).toBeGreaterThan(0)
+    expect(calls[calls.length - 1][0]).toEqual([])
+  })
+
+  it("leaves solid edges undashed", () => {
+    const ctx = Object.assign(mockCtx(), { setLineDash: vi.fn() })
+    drawGraph(ctx, graph, SIZE)
+    expect(ctx.setLineDash).not.toHaveBeenCalled()
+  })
 })
