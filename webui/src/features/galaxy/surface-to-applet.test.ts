@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { compileApplet, validateApplet } from "@/features/applet/compile"
 import type { AppletTree, ElNode, JsonValue, Node } from "@/features/applet/tree"
 
-import { everyTypeComponents, researchBoard, surface } from "./__fixtures__/surfaces"
+import { everyTypeComponents, legacyTimelineProps, neutralTimelineProps, researchBoard, surface, tableTimelineProps } from "./__fixtures__/surfaces"
 import { formatStatValue } from "./surface-adapters"
 import { SURFACE_REF_KEY, readSurfaceRef, surfaceToApplet } from "./surface-to-applet"
 import { SURFACE_COMPONENT_TYPES, type SurfaceRef } from "./surface-types"
@@ -182,11 +182,13 @@ describe("surfaceToApplet — every catalog type", () => {
     })
   })
 
-  it("projects timeline events", () => {
-    expect(propValue(tree, first(tree, "Timeline"), "events")).toEqual([
-      { date: "2026-03-09", title: "Kickoff", description: "Started" },
-      { date: "Spring", title: "Pilot" },
+  it("maps legacy TimelineJS events to the library-neutral timeline", () => {
+    const timeline = first(tree, "Timeline")
+    expect(propValue(tree, timeline, "events")).toEqual([
+      { id: "e1", title: "Kickoff", description: "Started", start: { year: 2026, month: 3, day: 9, precision: "day" } },
+      { id: "event-1", title: "Pilot", start: { year: 2026, month: 4, precision: "month" }, dateLabel: "Spring" },
     ])
+    expect(propValue(tree, timeline, "eras")).toEqual([])
   })
 
   it("maps the knowledge graph (type colors, dashed contested links, both directions)", () => {
@@ -589,5 +591,91 @@ describe("readSurfaceRef", () => {
     expect(readSurfaceRef(bad.source)).toBeNull()
     const badVersion = translate(researchBoard(), { surfaceId: "ok", version: 1.5 })
     expect(badVersion.warnings).toEqual(["the surface ref has an invalid version; it was not recorded"])
+  })
+})
+
+
+describe("surfaceToApplet — Timeline in either contract shape", () => {
+  const timelineOf = (props: Record<string, unknown>) => {
+    const result = translate(surface([{ id: "tl", component: { Timeline: props } }]))
+    const el = first(result.tree, "Timeline")
+    return { ...result, el, events: propValue(result.tree, el, "events"), eras: propValue(result.tree, el, "eras") }
+  }
+
+  it("maps the legacy TimelineJS shape exactly (ids, plain text, precision, labels, safe media, group)", () => {
+    const { events, el, warnings, tree } = timelineOf(legacyTimelineProps())
+    expect(events).toEqual([
+      {
+        id: "suffrage",
+        title: "Representation of the People Act",
+        description: "Some women gain the vote.\nOver 30 & property owners.",
+        start: { year: 1918, month: 2, day: 6, precision: "day" },
+        dateLabel: "6 February 1918",
+        group: "Law",
+        media: { url: "https://example.org/act.png", caption: "The Act", credit: "Parliament" },
+      },
+      { id: "event-1", title: "Chicxulub impact", start: { year: -66000000, precision: "million-years" }, dateLabel: "66 Mya" },
+      {
+        id: "event-2",
+        title: "Untitled",
+        description: "Equal franchise",
+        start: { year: 1928, month: 7, precision: "month" },
+        end: { year: 1929, precision: "year" },
+      },
+    ])
+    expect(propValue(tree, el, "height")).toBe(600)
+    expect(warnings.join("\n")).toMatch(/1 timeline event\(s\) without a usable title or start date were dropped/)
+  })
+
+  it("passes the library-neutral shape through the shared normalizer", () => {
+    const { events, eras, el, source } = timelineOf(neutralTimelineProps())
+    const list = events as Array<Record<string, unknown>>
+    expect(list.map((e) => e.id)).toEqual(["opening", "las-meninas", "war"]) // input order
+    expect(list[0]).toEqual({
+      id: "opening",
+      title: "The museum opens",
+      subtitle: "Royal Museum of Paintings",
+      description: "Opened to the public with 311 Spanish paintings on show.",
+      start: { year: 1819, month: 11, day: 19, precision: "day" },
+      importance: 5,
+      category: "Institution",
+      tags: ["opening", "building"],
+      media: { url: "https://example.org/prado.jpg", caption: "The Villanueva building", credit: "Example Archive" },
+      link: { url: "https://example.org/history", label: "History of the Prado" },
+      style: { card: "classic", font: "serif" },
+    })
+    expect(list[1].style).toEqual({ card: "image", color: "#7a1f2b" })
+    expect(list[2]).not.toHaveProperty("link") // ftp:// is not http(s)
+    expect(list[2].end).toEqual({ year: 1939, precision: "year" })
+    expect(eras).toEqual([{ title: "Bourbon Restoration", start: { year: 1874, precision: "year" }, end: { year: 1931, precision: "year" }, color: "chart-3" }])
+    expect(el.props).toMatchObject({ title: "Museo del Prado", height: 520 })
+    // Bulky data lives in the <Widget data> scope, not inline.
+    expect(el.bind?.events).toBeTruthy()
+    expect(source).toContain('"events":')
+  })
+
+  it("converts table input to events", () => {
+    const { events, warnings } = timelineOf(tableTimelineProps())
+    expect(events).toEqual([
+      {
+        id: "row-0",
+        title: "Owain Glyndŵr",
+        start: { year: 1359, precision: "year" },
+        end: { year: 1415, precision: "year" },
+        dateLabel: "c. 1359",
+        importance: 5,
+        tags: ["rebellion", "prince"],
+        media: { url: "https://example.org/owain.jpg" },
+        link: { url: "https://example.org/owain" },
+      },
+      { id: "row-1", title: "Hywel Dda", start: { year: 880, precision: "year" }, end: { year: 950, precision: "year" }, importance: 4, tags: ["law"] },
+    ])
+    expect(warnings.join("\n")).toMatch(/1 timeline event\(s\) without a usable title or start date were dropped/)
+  })
+
+  it("keeps an empty timeline on the picture renderer (eras always bound)", () => {
+    const { events, eras } = timelineOf({ events: [] })
+    expect(events).toEqual([])
+    expect(eras).toEqual([])
   })
 })

@@ -138,7 +138,7 @@ export function everyTypeComponents(): SurfaceComponent[] {
           data: {
             events: [
               { unique_id: "e1", start_date: { year: 2026, month: 3, day: 9 }, text: { headline: "Kickoff", text: "Started" } },
-              { display_date: "Spring", text: { headline: "Pilot" } },
+              { display_date: "Spring", start_date: { year: 2026, month: 4 }, text: { headline: "Pilot" } },
             ],
           },
         },
@@ -181,5 +181,89 @@ export function surface(components: unknown[], extra: Record<string, unknown> = 
     surfaceUpdate: { surfaceId: "fixture", components },
     bindings: [],
     ...extra,
+  }
+}
+
+
+/** A Timeline in the library-neutral shape: importance, categories, media, links, styles, tags, eras. */
+export function neutralTimelineProps(): Record<string, unknown> {
+  return {
+    title: "Museo del Prado",
+    height: 520,
+    events: [
+      {
+        id: "opening",
+        title: "The museum opens",
+        subtitle: "Royal Museum of Paintings",
+        description: "Opened to the public with 311 Spanish paintings on show.",
+        start: { year: 1819, month: 11, day: 19 },
+        importance: 5,
+        category: "Institution",
+        tags: ["opening", "building"],
+        media: { url: "https://example.org/prado.jpg", caption: "The Villanueva building", credit: "Example Archive" },
+        link: { url: "https://example.org/history", label: "History of the Prado" },
+        style: { card: "classic", font: "serif" },
+      },
+      {
+        id: "las-meninas",
+        title: "Las Meninas",
+        start: { year: 1656, precision: "year" },
+        importance: 4,
+        category: "Painting",
+        group: "Collection",
+        tags: ["Velázquez"],
+        style: { card: "image", color: "#7a1f2b" },
+      },
+      {
+        id: "war",
+        title: "Collection evacuated",
+        start: { year: 1936 },
+        end: { year: 1939 },
+        importance: 3,
+        category: "Institution",
+        link: { url: "ftp://example.org/history" },
+      },
+    ],
+    eras: [{ title: "Bourbon Restoration", start: { year: 1874 }, end: { year: 1931 }, color: "chart-3" }],
+  }
+}
+
+
+/** A Timeline in the legacy TimelineJS shape (HTML text, an unsafe media URL, an undated event). */
+export function legacyTimelineProps(): Record<string, unknown> {
+  return {
+    data: {
+      events: [
+        {
+          unique_id: "suffrage",
+          start_date: { year: 1918, month: 2, day: 6, display_date: "6 February 1918" },
+          text: { headline: "<b>Representation of the People Act</b>", text: "<p>Some women gain the vote.</p><p>Over 30 &amp; property owners.</p>" },
+          media: { url: "https://example.org/act.png", caption: "<i>The Act</i>", credit: "Parliament" },
+          group: "Law",
+        },
+        { start_date: { year: -66000000 }, text: { headline: "Chicxulub impact" }, display_date: "66 Mya" },
+        { start_date: { year: 1928, month: 7 }, end_date: { year: 1929 }, text: { text: "Equal franchise" }, media: { url: "data:image/png;base64,AAAA" } },
+        { text: { headline: "Undated" } },
+      ],
+      scale: "human",
+    },
+    options: { height: 600 },
+  }
+}
+
+
+/** A Timeline given as a spreadsheet (`table`). */
+export function tableTimelineProps(): Record<string, unknown> {
+  return {
+    title: "Welsh lives",
+    table: {
+      columns: ["Name", "Born", "Died", "Weight", "Tags", "Portrait", "Link"],
+      rows: [
+        ["Owain Glyndŵr", "c. 1359", "1415", 5, "rebellion, prince", "https://example.org/owain.jpg", "https://example.org/owain"],
+        ["Hywel Dda", "880", "950", "4", "law", "ftp://example.org/x.jpg", null],
+        [null, "1900", null, null, null, null, null],
+      ],
+      map: { title: "Name", start: "Born", end: "Died", importance: "Weight", tags: "Tags", image: "Portrait", link: "Link" },
+    },
   }
 }

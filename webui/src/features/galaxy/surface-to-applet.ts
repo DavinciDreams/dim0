@@ -14,7 +14,9 @@
 //   DataTable            → <Table cellFormat="readable"> (+ title / sort / page / style options)
 //   StatsDisplay         → <Stats> (format → formatted value, diff → change) under its title
 //   Charts               → <Chart> ({ labels, datasets } built from Generous series / variants)
-//   Timeline             → <Timeline> ({ date, title, description })
+//   Timeline             → <Timeline events eras title? height?> — the contract shape is guarded
+//                          and passed through (a `table` is converted to events); the legacy
+//                          TimelineJS shape is mapped event by event (surface-adapters.ts)
 //   KnowledgeGraph       → <Graph directed> (entities → nodes, relationships → edges)
 //   Markdown             → <Markdown omitImages>
 //   SVGPreview           → <SVGPreview> (sanitized inside the component)
@@ -230,7 +232,7 @@ function emitNode(node: SurfaceNode, out: Emitter, indent: string): string[] {
     case "Charts":
       return withChildren(emitChart(p, out, indent), node, out, indent)
     case "Timeline":
-      return withChildren([`${indent}<Timeline events={${out.bind(timelineFromSurface(p))}} />`], node, out, indent)
+      return withChildren(emitTimeline(p, out, indent), node, out, indent)
     case "KnowledgeGraph":
       return withChildren(emitGraph(p, out, indent), node, out, indent)
     case "Markdown":
@@ -347,6 +349,16 @@ function emitGraph(p: JsonObject, out: Emitter, indent: string): string[] {
   const key = out.bind({ nodes: g.nodes, edges: g.edges })
   const graph = `${inner}<Graph nodes={${key}.nodes} edges={${key}.edges} layout="${g.layout}" directed height={360} />`
   return element("Card", ` className="${SECTION}"`, [...head, graph], indent)
+}
+
+
+/** `<Timeline>` with its events and eras bound from the data scope (eras always present, so an
+ *  empty timeline still renders as the picture timeline, not the legacy list). */
+function emitTimeline(p: JsonObject, out: Emitter, indent: string): string[] {
+  const t = timelineFromSurface(p, (m) => out.warn(m))
+  const key = out.bind({ events: t.events, eras: t.eras })
+  const attrs = ` events={${key}.events} eras={${key}.eras}` + (t.title ? out.textProp("title", t.title) : "") + prop("height", t.height)
+  return [`${indent}<Timeline${attrs} />`]
 }
 
 

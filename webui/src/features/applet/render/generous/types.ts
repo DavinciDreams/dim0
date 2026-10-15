@@ -68,16 +68,25 @@ export interface ProgressTrackerProps {
 }
 
 
-export interface TimelineEvent {
+/** An event of the legacy list shape (applets written before the picture timeline). */
+export interface LegacyTimelineEvent {
   date: string
   title: string
   description?: string
 }
 
 
-export interface TimelineProps {
-  events: TimelineEvent[]
+export interface LegacyTimelineProps {
+  events: LegacyTimelineEvent[]
 }
+
+
+/**
+ * <Timeline> props: the contract shape `{ title?, height?, events | table, eras? }`
+ * (guarded in ./timeline/model.ts) or the legacy `{ events: [{ date, title }] }`
+ * list. Every field is checked at runtime, so the type is deliberately loose.
+ */
+export type TimelineProps = Record<string, unknown>
 
 
 export interface SvgPreviewProps {

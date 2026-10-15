@@ -1,9 +1,10 @@
-// The applet <ProgressTracker> and <Timeline> components. Adapted from Generous
-// (MIT): vertical step and event lists.
+// The applet <ProgressTracker> and the legacy <Timeline> list. Adapted from
+// Generous (MIT): vertical step and event lists. The picture timeline for the
+// contract shape lives in ./timeline (the dispatcher is in lazy.tsx).
 
 import { cn } from "@/lib/utils"
 
-import type { ProgressStep, ProgressTrackerProps, TimelineProps } from "./types"
+import type { LegacyTimelineProps, ProgressStep, ProgressTrackerProps } from "./types"
 
 
 const STATUS_DOT: Record<NonNullable<ProgressStep["status"]>, string> = {
@@ -45,8 +46,8 @@ export function ProgressTracker({ steps }: ProgressTrackerProps) {
 }
 
 
-/** Render dated events along a vertical rail, in the given order. */
-export function Timeline({ events }: TimelineProps) {
+/** Render legacy `{ date, title, description? }` events along a vertical rail, in the given order. */
+export function TimelineList({ events }: LegacyTimelineProps) {
   const list = Array.isArray(events) ? events.filter((e) => e && typeof e === "object") : []
   return (
     <ol className="relative ml-2 border-l border-border">

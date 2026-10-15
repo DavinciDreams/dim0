@@ -6,6 +6,7 @@
 // badge variants, layout alignment), the contract's own props are honoured.
 // Pure and DOM-free; inputs are already bounded JSON (surface-project.ts).
 
+import { isLegacyTimelineProps, normalizeTimelineProps } from "@/features/applet/render/generous/timeline/contract"
 import type { JsonValue } from "@/features/applet/tree"
 
 import type { JsonObject } from "./surface-project"
@@ -378,29 +379,36 @@ export function statsFromSurface(props: JsonObject): AppletStatsConfig {
 
 // ---- Timeline ----
 
-function timelineDate(value: JsonValue | undefined): string {
-  const date = record(value)
-  if (typeof date.display_date === "string" && date.display_date.trim()) return date.display_date.trim()
-  if (typeof date.year !== "number" || !Number.isInteger(date.year)) return ""
-  const month = typeof date.month === "number" && Number.isInteger(date.month) ? `-${String(date.month).padStart(2, "0")}` : ""
-  const day = typeof date.day === "number" && Number.isInteger(date.day) ? `-${String(date.day).padStart(2, "0")}` : ""
-  return `${date.year}${month}${day}`
+export interface AppletTimelineConfig {
+  title?: string
+  height?: number
+  events: JsonObject[]
+  eras: JsonObject[]
 }
 
 
-/** Adapt Timeline events (GB `projectTimelineData`) to `<Timeline>` `{ date, title, description? }`. */
-export function timelineFromSurface(props: JsonObject): JsonObject[] {
-  return list(record(props.data).events).map((candidate, i) => {
-    const event = record(candidate)
-    const content = record(event.text)
-    const description = text(content.text)
-    const out: JsonObject = {
-      date: text(event.display_date) || timelineDate(event.start_date),
-      title: text(content.headline) || `Event ${i + 1}`,
-    }
-    if (description) out.description = description
-    return out
-  })
+/**
+ * Adapt a Timeline in either contract shape to Dim-0 `<Timeline>` props through
+ * the shared contract normalizer (the same rules Generous applies): the
+ * library-neutral shape (`events` or `table`) is guarded and passed through,
+ * the legacy TimelineJS shape (`data.events`) is mapped event by event — id =
+ * `unique_id` ?? `event-<index>`, plain-text headline / text, precision inferred
+ * from the date parts, `display_date` as the label, http(s) media only, group
+ * kept, undated events dropped. Events keep their input order.
+ */
+export function timelineFromSurface(props: JsonObject, note: (message: string) => void): AppletTimelineConfig {
+  const timeline = normalizeTimelineProps(props)
+  const raw = isLegacyTimelineProps(props) ? list(record(props.data).events) : Array.isArray(props.events) ? props.events : list(record(props.table).rows)
+  const dropped = raw.length - timeline.events.length
+  if (dropped > 0) note(`${dropped} timeline event(s) without a usable title or start date were dropped`)
+  if (Array.isArray(props.events) && props.table !== undefined) note("the timeline has both events and table; the events were used")
+  const out: AppletTimelineConfig = {
+    events: timeline.events as unknown as JsonObject[],
+    eras: (timeline.eras ?? []) as unknown as JsonObject[],
+  }
+  if (timeline.title) out.title = timeline.title
+  if (timeline.height !== undefined) out.height = timeline.height
+  return out
 }
 
 

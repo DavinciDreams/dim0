@@ -246,6 +246,72 @@ export interface StatsDisplaySurfaceProps {
   stats: StatItem[]
 }
 
+/** `$defs.color`: a theme palette name or an explicit `#RRGGBB`. */
+export type TimelineColor =
+  | `#${string}`
+  | "chart-1" | "chart-2" | "chart-3" | "chart-4" | "chart-5"
+  | "primary" | "secondary" | "muted" | "accent" | "destructive"
+
+/** `$defs.date` (library-neutral shape). */
+export interface TimelineShapeDate {
+  year: number
+  month?: number
+  day?: number
+  precision?: "billion-years" | "million-years" | "millennium" | "century" | "decade" | "year" | "month" | "day"
+}
+
+/** `$defs.event`. */
+export interface TimelineShapeEvent {
+  id: string
+  title: string
+  subtitle?: string
+  description?: string
+  start: TimelineShapeDate
+  end?: TimelineShapeDate
+  dateLabel?: string
+  importance?: 1 | 2 | 3 | 4 | 5
+  category?: string
+  group?: string
+  tags?: string[]
+  media?: { url: string; caption?: string; credit?: string; alt?: string }
+  link?: { url: string; label?: string }
+  style?: {
+    card?: "classic" | "rounded" | "note" | "image" | "dark"
+    color?: TimelineColor
+    font?: "sans" | "serif" | "script" | "mono" | "display"
+  }
+}
+
+/** `$defs.era`. */
+export interface TimelineShapeEra {
+  title: string
+  start: TimelineShapeDate
+  end: TimelineShapeDate
+  category?: string
+  color?: TimelineColor
+}
+
+/** `$defs.table`: spreadsheet input; `map` names the column for each event field. */
+export interface TimelineShapeTable {
+  columns: string[]
+  rows: Array<Array<string | number | null>>
+  map: { title: string; start: string } & Partial<
+    Record<
+      | "id" | "subtitle" | "description" | "end" | "dateLabel" | "importance" | "category" | "group" | "tags"
+      | "image" | "imageCaption" | "imageCredit" | "link" | "linkLabel" | "color",
+      string
+    >
+  >
+}
+
+/** `$defs.timeline`: exactly one of `events` / `table`. */
+export type TimelineShapeProps = {
+  title?: string
+  height?: number
+  eras?: TimelineShapeEra[]
+} & ({ events: TimelineShapeEvent[]; table?: never } | { table: TimelineShapeTable; events?: never })
+
+/** Legacy TimelineJS date. */
 export interface TimelineDate {
   year: number
   month?: number
@@ -253,6 +319,7 @@ export interface TimelineDate {
   display_date?: string
 }
 
+/** Legacy TimelineJS event (surfaces saved before the library-neutral shape). */
 export interface TimelineSurfaceEvent {
   unique_id?: string
   start_date?: TimelineDate
@@ -264,10 +331,14 @@ export interface TimelineSurfaceEvent {
   autolink?: boolean
 }
 
-export interface TimelineSurfaceProps {
+/** Legacy TimelineJS props (`oneOf[1]`). */
+export interface LegacyTimelineSurfaceProps {
   data: { events: TimelineSurfaceEvent[]; scale?: "human" | "cosmological" }
   options?: Record<string, unknown>
 }
+
+/** Timeline accepts either shape (`propsSchema.oneOf`). */
+export type TimelineSurfaceProps = TimelineShapeProps | LegacyTimelineSurfaceProps
 
 export interface SvgPreviewSurfaceProps {
   svg: string

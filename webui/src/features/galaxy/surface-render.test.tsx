@@ -3,7 +3,7 @@
 // jsdom and has its own coverage; everything else is the production component.
 
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
 import { AppletRenderer } from "@/features/applet/render"
 
@@ -22,6 +22,13 @@ vi.mock("@/components/markdown/markdown-view", () => ({
 
 
 afterEach(cleanup)
+
+
+// The picture timeline is lazy-loaded; warm its chunk so the render test measures
+// rendering, not the first transform of the module graph.
+beforeAll(async () => {
+  await import("@/features/applet/render/generous/timeline/timeline-view")
+}, 60_000)
 
 
 describe("translated surfaces render", () => {
@@ -48,14 +55,16 @@ describe("translated surfaces render", () => {
     expect(screen.getByText("$12,346")).toBeTruthy()
     expect(screen.getByText(/▲ 12\.3%/)).toBeTruthy()
     expect(screen.getByText("alpha")).toBeTruthy()
-    expect(screen.getByText("Kickoff")).toBeTruthy()
-    expect(screen.getByText("2026-03-09")).toBeTruthy()
+    // The picture timeline is lazy: a card per event plus the screen-reader list.
+    expect((await screen.findAllByText("Kickoff", {}, { timeout: 5_000 })).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("9 Mar 2026").length).toBeGreaterThan(0)
+    expect(screen.getByRole("list", { name: "Timeline events" }).textContent).toContain("Spring: Pilot")
     expect(screen.getByText("3 entities · 2 relationships")).toBeTruthy()
     const markdown = await screen.findAllByTestId("markdown")
     expect(markdown.map((m) => m.dataset.omitImages)).toEqual(["true", "true"])
     await waitFor(() => expect(container.querySelector('[data-slot="svg-preview"] circle')).toBeTruthy())
     expect(screen.getByText("Contour").tagName).toBe("FIGCAPTION")
-  })
+  }, 30_000)
 
   it("renders the refusal notice for a non-surface", () => {
     render(<AppletRenderer source={surfaceToApplet({ nope: true }).source} />)
