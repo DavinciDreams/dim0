@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from "react"
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
+  CloudArrowDownIcon,
   CodeInterpreterIcon,
   DocumentFileIcon,
   GlobeIcon,
@@ -21,9 +22,13 @@ import { useModelCatalog } from "@/features/agent/api/use-model-catalog"
 import { agentResolveContext, isOnline } from "@/features/agent/engine/services/context"
 import { resolveAllServices, resolveService } from "@/features/agent/engine/services/resolve"
 import { isKeylessSearchEngine, type ServiceKind } from "@/features/agent/engine/services/kinds"
+import { galaxyUrl } from "@/features/galaxy/galaxy-config"
+import { beginGalaxyConnect, revokeGalaxyTokens } from "@/features/galaxy/galaxy-oauth"
+import { isConnectedTo, useGalaxyStore } from "@/features/galaxy/galaxy-store"
+import { isTauri } from "@/platform"
 
 
-type SectionId = "general" | "models" | "search" | "code" | "documents"
+type SectionId = "general" | "models" | "search" | "code" | "documents" | "galaxy"
 
 const NAV: { id: SectionId; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { id: "general", label: "General", icon: ToolsMenuIcon },
@@ -31,6 +36,7 @@ const NAV: { id: SectionId; label: string; icon: ComponentType<{ className?: str
   { id: "search", label: "Web search", icon: GlobeIcon },
   { id: "code", label: "Code interpreter", icon: CodeInterpreterIcon },
   { id: "documents", label: "Documents", icon: DocumentFileIcon },
+  { id: "galaxy", label: "Galaxy Brain", icon: CloudArrowDownIcon },
 ]
 
 const SEARCH_ENGINES: { id: SearchEngine; label: string; placeholder: string }[] = [
@@ -95,7 +101,8 @@ export function SettingsDialog({ trigger }: { trigger: React.ReactNode }) {
             <div className="px-2 pb-2 pt-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
               Settings
             </div>
-            {NAV.map(({ id, label, icon: Icon }) => {
+            {/* Galaxy Brain shows only where this deployment has one configured. */}
+            {NAV.filter(({ id }) => id !== "galaxy" || galaxyUrl() !== "").map(({ id, label, icon: Icon }) => {
               const kind = NAV_KIND[id]
               return (
               <button
@@ -127,6 +134,7 @@ export function SettingsDialog({ trigger }: { trigger: React.ReactNode }) {
             {section === "search" && <SearchPane />}
             {section === "code" && <CodePane />}
             {section === "documents" && <DocumentsPane />}
+            {section === "galaxy" && <GalaxyPane />}
           </div>
         </div>
       </DialogContent>
@@ -468,6 +476,69 @@ function DocumentsPane() {
         />
         <SaveButton disabled={key === savedKey} onClick={() => setParse({ apiKey: key.trim() })} />
       </div>
+    </div>
+  )
+}
+
+
+/** Galaxy Brain: connect (OAuth in the browser) to place Galaxy surfaces on boards. */
+function GalaxyPane() {
+  const galaxy = galaxyUrl()
+  const tokens = useGalaxyStore((s) => s.tokens)
+  const clear = useGalaxyStore((s) => s.clear)
+  const [pending, setPending] = useState(false)
+  const connected = isConnectedTo(tokens, galaxy)
+  const host = galaxy ? new URL(galaxy).host : ""
+
+  const connect = async () => {
+    setPending(true)
+    await beginGalaxyConnect(galaxy, `${window.location.pathname}${window.location.search}`)
+  }
+  const disconnect = async () => {
+    setPending(true)
+    if (tokens) await revokeGalaxyTokens(tokens)
+    clear()
+    setPending(false)
+  }
+
+  return (
+    <div>
+      <PaneTitle
+        title="Galaxy Brain"
+        hint="Place your promoted Galaxy surfaces (charts, tables, graphs, timelines) on boards. Dim-0 gets access to your surfaces only."
+      />
+      <div className="mb-3 flex items-center gap-2 text-xs font-medium">
+        <StatusDot usable={connected} />
+        {connected ? `Connected to ${host}` : host}
+      </div>
+      {isTauri() && !connected ? (
+        <p className="text-sm text-muted-foreground">
+          The desktop app can't connect to Galaxy Brain yet. Connect from Dim-0 on the web.
+        </p>
+      ) : connected ? (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Insert a surface from the board's More menu, or ask the assistant to add one.
+          </p>
+          <button
+            type="button"
+            onClick={disconnect}
+            disabled={pending}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition hover:bg-accent disabled:opacity-40"
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={connect}
+          disabled={pending}
+          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition hover:bg-accent disabled:opacity-40"
+        >
+          {pending ? "Opening Galaxy Brain…" : "Connect Galaxy Brain"}
+        </button>
+      )}
     </div>
   )
 }

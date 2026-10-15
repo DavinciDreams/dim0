@@ -12,6 +12,7 @@ import { CaptureSpikePage } from "@/features/dev/capture-spike"
 import { SigninPage } from "@/features/signin/screens/sign-in"
 import { SignupPage } from "@/features/signin/screens/sign-up"
 import { GoogleCallbackPage } from "@/features/signin/screens/google-callback"
+import { GalaxyCallbackPage } from "@/features/galaxy/galaxy-callback"
 import { clearTokens, getAccessToken } from "@/features/signin/auth-storage"
 import { decodeJwt } from "@/lib/decode-jwt"
 import { getEmailVerificationStatus } from "@/api"
@@ -95,6 +96,12 @@ const googleCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/signin/google/callback",
   component: GoogleCallbackPage,
+})
+
+const galaxyCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/galaxy/callback",
+  component: GalaxyCallbackPage,
 })
 
 const verifyEmailRoute = createRoute({
@@ -366,6 +373,7 @@ const routeTree = rootRoute.addChildren([
   signinRoute,
   signupRoute,
   googleCallbackRoute,
+  galaxyCallbackRoute,
   verifyEmailRoute,
   forgotPasswordRoute,
   resetPasswordRoute,

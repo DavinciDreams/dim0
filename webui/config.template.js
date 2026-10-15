@@ -8,4 +8,6 @@ window.__APP_CONFIG__ = {
   // The host app's public origin. Read by the iframe runtime to
   // validate `event.origin` on incoming postMessage events.
   hostOrigin: "${VITE_HOST_ORIGIN}",
+  // Galaxy Brain origin for importing surfaces; empty hides the integration.
+  galaxyUrl: "${VITE_GALAXY_URL}",
 }

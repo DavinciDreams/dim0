@@ -2,6 +2,7 @@ import { ChartLineIcon } from "@phosphor-icons/react"
 import { useCanvasStore } from "@canvas-harness/react"
 
 import {
+  CloudArrowDownIcon,
   CodeFileIcon,
   DocumentFileIcon,
   EllipsisIcon,
@@ -30,6 +31,8 @@ import { useBoardAppStore } from "../store/board-app-store"
 import { DocumentUploadDialog } from "./document-upload-dialog"
 import { IconSearchDialog } from "./icon-search-dialog"
 import { ImageSearchDialog } from "./image-search-dialog"
+import { GalaxySurfaceDialog } from "./galaxy-surface-dialog"
+import { galaxyUrl } from "@/features/galaxy/galaxy-config"
 
 
 // Always-present transparent border so the hover border doesn't shift the icon;
@@ -114,6 +117,12 @@ const MoreMenuItems = ({
         <span>Applet</span>
         <NodeLimitBadge count={appletCount} limit={nodeLimitFor("applet", userPlan)} />
       </DropdownMenuItem>
+      {galaxyUrl() !== "" && (
+        <DropdownMenuItem onSelect={() => setChromeDialog("galaxy-surface")} className="gap-2 text-sm">
+          <CloudArrowDownIcon className="size-4 shrink-0" />
+          <span>Galaxy surface</span>
+        </DropdownMenuItem>
+      )}
     </>
   )
 }
@@ -139,6 +148,7 @@ export function HarnessToolbarMore({ local = false }: { local?: boolean } = {}) 
   const openImageSearch = chromeDialog === "image-search"
   const openIconSearch = chromeDialog === "icon-search"
   const openDocumentUpload = chromeDialog === "document-upload"
+  const openGalaxySurface = chromeDialog === "galaxy-surface"
 
   return (
     <>
@@ -180,6 +190,10 @@ export function HarnessToolbarMore({ local = false }: { local?: boolean } = {}) 
       <DocumentUploadDialog
         open={openDocumentUpload}
         onOpenChange={(open) => setChromeDialog(open ? "document-upload" : null)}
+      />
+      <GalaxySurfaceDialog
+        open={openGalaxySurface}
+        onOpenChange={(open) => setChromeDialog(open ? "galaxy-surface" : null)}
       />
     </>
   )
