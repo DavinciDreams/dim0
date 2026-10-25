@@ -40,6 +40,7 @@ from topix.api.utils.rate_limit.policy import resolve_allowed_model_tiers
 from topix.api.utils.rate_limit.service import enforce_rate_limit
 from topix.api.utils.security import decode_and_validate_token, get_current_user_uid
 from topix.config import catalog
+from topix.nlp.docling_parser import create_pdf_parser
 from topix.nlp.parser import MistralParser
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -507,9 +508,9 @@ async def ai_parse(
     file: UploadFile = File(..., description="PDF to OCR into markdown"),
     x_provider_key: Annotated[str | None, Header()] = None,
 ):
-    """OCR an uploaded PDF into markdown via Mistral; returns `{markdown, pages}`.
+    """OCR a PDF with the configured parser; return `{markdown, pages}`.
 
-    Uses our Mistral key by default, or relays the user's `X-Provider-Key` (a
+    Uses private Docling by default, or relays the user's `X-Provider-Key` (a
     Mistral key) for this call only — never stored. Only PDFs are supported; the
     bytes are OCR'd from a short-lived temp file and never persisted server-side
     (the client owns the resulting markdown, offline-first).
@@ -530,7 +531,9 @@ async def ai_parse(
             f"PDF must be under {MAX_PDF_BYTES // (1024 * 1024)} MB",
         )
 
-    parser = MistralParser(api_key=x_provider_key) if x_provider_key else MistralParser.from_config()
+    parser = MistralParser(api_key=x_provider_key) if x_provider_key else create_pdf_parser()
+    if parser is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Configure DOCLING_API_URL or MISTRAL_API_KEY for PDF import.")
 
     tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     try:

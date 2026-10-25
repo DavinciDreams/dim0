@@ -22,12 +22,12 @@ router = APIRouter(
 
 
 def _require_parsing_pipeline(request: Request) -> ParsingPipeline:
-    """Return the PDF pipeline or explain that Mistral OCR is unavailable."""
+    """Return the PDF pipeline or explain which OCR configuration is missing."""
     pipeline: ParsingPipeline | None = getattr(request.app, "parser_pipeline", None)
     if pipeline is None:
         raise HTTPException(
             status_code=503,
-            detail="PDF document import requires MISTRAL_API_KEY.",
+            detail="PDF document import requires DOCLING_API_URL or MISTRAL_API_KEY.",
         )
     return pipeline
 
