@@ -32,10 +32,12 @@ to Docling Serve CPU v1.35.0 by image digest. Only `backend` joins its internal
 network and calls `DOCLING_API_URL=http://docling:5001`. Assign no public domain
 or host port to Docling. The service has a 4 CPU / 8 GiB ceiling and one worker.
 
-PDF import uses RapidOCR in English, accurate table extraction, and heading
+PDF import uses the image's bundled RapidOCR models, accurate table extraction, and heading
 hierarchy. Formula enrichment is disabled for this CPU deployment. Input is
 limited to 25 MiB and 200 pages, and conversion has a 180 second deadline.
 Page Markdown retains the zero-based page numbers used by the existing chunker.
+Browser chat attachments at `/ai/parse` use the same parser, retaining their
+existing 5 MiB / 50 page limits. An explicit Mistral BYOK header selects Mistral.
 
 `MISTRAL_API_KEY` remains optional. When present, a failed Docling conversion
 falls back to Mistral and sends that PDF to Mistral's hosted API. Leave the key

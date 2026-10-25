@@ -1,4 +1,4 @@
-"""Unit tests for POST /ai/parse — PDF → markdown via Mistral OCR.
+"""Unit tests for POST /ai/parse with managed OCR and explicit Mistral BYOK.
 
 The Mistral client is faked, so no network and no key are needed; we exercise
 the endpoint's file handling, PDF gate, BYOK-key pass-through, and shaping.
@@ -34,6 +34,7 @@ class _FakeParser:
 
 def _client(monkeypatch) -> TestClient:
     monkeypatch.setattr(ai_module, "MistralParser", _FakeParser)
+    monkeypatch.setattr(ai_module, "create_pdf_parser", _FakeParser.from_config)
     _FakeParser.last_api_key = None
     _FakeParser.num_pages = 2
     app = FastAPI()
@@ -60,9 +61,26 @@ def test_parse_returns_joined_markdown_and_page_count(monkeypatch):
 
 
 def test_parse_uses_server_key_by_default(monkeypatch):
-    """No X-Provider-Key → MistralParser.from_config() (our key)."""
+    """No X-Provider-Key uses the configured managed parser."""
     _client(monkeypatch).post("/ai/parse", files=_pdf_file())
     assert _FakeParser.last_api_key == "server-key"
+
+
+def test_parse_uses_docling_without_mistral(monkeypatch):
+    """Managed PDF attachments can use private OCR without a Mistral key."""
+    client = _client(monkeypatch)
+    parser = _FakeParser()
+    monkeypatch.setattr(ai_module, "create_pdf_parser", lambda: parser)
+    res = client.post("/ai/parse", files=_pdf_file())
+    assert res.status_code == 200
+    assert _FakeParser.last_api_key is None
+
+
+def test_parse_reports_missing_provider(monkeypatch):
+    """Missing optional providers produce an actionable 503."""
+    client = _client(monkeypatch)
+    monkeypatch.setattr(ai_module, "create_pdf_parser", lambda: None)
+    assert client.post("/ai/parse", files=_pdf_file()).status_code == 503
 
 
 def test_parse_relays_byok_provider_key(monkeypatch):

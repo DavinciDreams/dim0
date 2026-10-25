@@ -29,6 +29,10 @@ class DoclingParser:
         self.fallback = fallback
         self.timeout = timeout
 
+    def get_num_pages(self, filepath: str) -> int:
+        """Count PDF pages locally before making an OCR request."""
+        return len(PdfReader(filepath).pages)
+
     async def _convert(self, client: httpx.AsyncClient, content: bytes, marker: str, page: int | None = None) -> str:
         """Submit one bounded async conversion and accept only complete, valid results."""
         fields: dict[str, str | list[str]] = {
@@ -36,7 +40,6 @@ class DoclingParser:
             "to_formats": "md",
             "do_ocr": "true",
             "ocr_preset": "rapidocr",
-            "ocr_lang": "en",
             "do_table_structure": "true",
             "table_mode": "accurate",
             "do_pdf_heading_hierarchy": "true",
@@ -103,7 +106,7 @@ class DoclingParser:
         path = Path(filepath)
         if path.suffix.lower() != ".pdf" or path.stat().st_size > MAX_PDF_BYTES:
             raise ValueError("Expected a PDF no larger than 25 MiB")
-        page_count = await asyncio.to_thread(lambda: len(PdfReader(filepath).pages))
+        page_count = await asyncio.to_thread(self.get_num_pages, filepath)
         if not 1 <= page_count <= max_pages:
             raise ValueError(f"PDF must contain between 1 and {max_pages} pages")
         try:
