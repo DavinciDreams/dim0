@@ -24,6 +24,7 @@ from topix.datatypes.property import (
 )
 from topix.datatypes.resource import RichText
 from topix.nlp.chunking import Chunker
+from topix.nlp.docling_parser import DoclingParser, create_pdf_parser
 from topix.nlp.parser import MistralParser
 from topix.store.qdrant.store import ContentStore
 from topix.utils.colors import TAILWIND_200_ADAPTED
@@ -46,9 +47,11 @@ def color_notes_random_200(notes: list[Note]) -> None:
 class ParsingPipeline:
     """Parsing pipeline."""
 
-    def __init__(self) -> None:
-        """Initialize the parsing pipeline."""
-        self.parser = MistralParser.from_config()
+    def __init__(self, parser: DoclingParser | MistralParser | None = None) -> None:
+        """Initialize document processing with the configured PDF parser."""
+        self.parser = parser or create_pdf_parser()
+        if self.parser is None:
+            raise ValueError("PDF import requires DOCLING_API_URL or MISTRAL_API_KEY")
         self.chunker = Chunker()
         self.vector_store = ContentStore.from_config()
         self.mapifier = DocumentMindmapAgent()

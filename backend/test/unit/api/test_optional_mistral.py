@@ -11,21 +11,9 @@ import topix.api.app as app_module
 from topix.api.router.documents import _require_parsing_pipeline
 
 
-def _config_with_mistral_key(api_key):
-    """Build the minimum config shape required by the parser initializer."""
-    return SimpleNamespace(
-        run=SimpleNamespace(
-            apis=SimpleNamespace(
-                mistral=SimpleNamespace(api_key=api_key),
-            ),
-        ),
-    )
-
-
 def test_parser_pipeline_is_disabled_without_mistral_key(monkeypatch, caplog):
-    """A missing Mistral key must not prevent the rest of the API from starting."""
-    config = _config_with_mistral_key(None)
-    monkeypatch.setattr(app_module, "Config", SimpleNamespace(instance=lambda: config))
+    """Missing OCR providers must not prevent the rest of the API from starting."""
+    monkeypatch.setattr(app_module, "create_pdf_parser", lambda: None)
     monkeypatch.setattr(
         app_module,
         "ParsingPipeline",
@@ -33,15 +21,15 @@ def test_parser_pipeline_is_disabled_without_mistral_key(monkeypatch, caplog):
     )
 
     assert app_module._create_parser_pipeline() is None
-    assert "MISTRAL_API_KEY is not configured" in caplog.text
+    assert "configure DOCLING_API_URL or MISTRAL_API_KEY" in caplog.text
 
 
-def test_parser_pipeline_is_created_with_mistral_key(monkeypatch):
-    """A configured Mistral key keeps PDF document import enabled."""
-    config = _config_with_mistral_key(object())
+def test_parser_pipeline_is_created_with_provider(monkeypatch):
+    """Either configured OCR provider keeps PDF import enabled."""
     pipeline = object()
-    monkeypatch.setattr(app_module, "Config", SimpleNamespace(instance=lambda: config))
-    monkeypatch.setattr(app_module, "ParsingPipeline", lambda: pipeline)
+    parser = object()
+    monkeypatch.setattr(app_module, "create_pdf_parser", lambda: parser)
+    monkeypatch.setattr(app_module, "ParsingPipeline", lambda **kwargs: pipeline if kwargs["parser"] is parser else None)
 
     assert app_module._create_parser_pipeline() is pipeline
 
@@ -54,7 +42,7 @@ def test_document_import_returns_503_when_pipeline_is_disabled():
         _require_parsing_pipeline(request)
 
     assert exc_info.value.status_code == 503
-    assert exc_info.value.detail == "PDF document import requires MISTRAL_API_KEY."
+    assert exc_info.value.detail == "PDF document import requires DOCLING_API_URL or MISTRAL_API_KEY."
 
 
 def test_document_import_uses_configured_pipeline():

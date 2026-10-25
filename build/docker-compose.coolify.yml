@@ -32,6 +32,42 @@ services:
     volumes:
       - redis_data:/data
 
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.35.0@sha256:79e5fcd19ab227ed36323fa5fa31820d14d53efc4f073417ba37be7931c7af0a
+    restart: unless-stopped
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+      DOCLING_SERVE_ENABLE_API_DOCS: "false"
+      DOCLING_SERVE_ENABLE_REMOTE_SERVICES: "false"
+      DOCLING_SERVE_ALLOW_EXTERNAL_PLUGINS: "false"
+      DOCLING_SERVE_DEBUG_ERROR_DETAILS: "false"
+      DOCLING_SERVE_ENG_KIND: local
+      DOCLING_SERVE_ENG_LOC_NUM_WORKERS: 1
+      DOCLING_SERVE_MAX_SOURCES_PER_REQUEST: 1
+      DOCLING_SERVE_MAX_FILE_SIZE: 26214400
+      DOCLING_SERVE_MAX_NUM_PAGES: 200
+      DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT: 150
+      UVICORN_WORKERS: 1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/ready', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 20
+      start_period: 120s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=1073741824
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1001:1001"
+    pids_limit: 256
+    mem_limit: 8g
+    cpus: 4.0
+    networks:
+      - docling-internal
+
   backend:
     build:
       context: .
@@ -55,6 +91,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      DOCLING_API_URL: http://docling:5001
       LINKUP_API_KEY: ${LINKUP_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY:-}
@@ -88,9 +125,16 @@ services:
       start_period: 30s
     volumes:
       - backend_data:/app/data
+    networks:
+      - default
+      - docling-internal
 
 volumes:
   qdrant_data:
   pg_data:
   redis_data:
   backend_data:
+
+networks:
+  docling-internal:
+    internal: true

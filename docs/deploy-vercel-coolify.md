@@ -25,6 +25,27 @@ email, Daytona, and Google variables only for features that need them. Coolify
 generates `JWT_SECRET_KEY` from `SERVICE_REALBASE64_64_BACKEND`; do not replace
 that variable with a committed secret.
 
+### PDF import
+
+The Coolify Compose deployment runs a separate private `docling` service, pinned
+to Docling Serve CPU v1.35.0 by image digest. Only `backend` joins its internal
+network and calls `DOCLING_API_URL=http://docling:5001`. Assign no public domain
+or host port to Docling. The service has a 4 CPU / 8 GiB ceiling and one worker.
+
+PDF import uses RapidOCR in English, accurate table extraction, and heading
+hierarchy. Formula enrichment is disabled for this CPU deployment. Input is
+limited to 25 MiB and 200 pages, and conversion has a 180 second deadline.
+Page Markdown retains the zero-based page numbers used by the existing chunker.
+
+`MISTRAL_API_KEY` remains optional. When present, a failed Docling conversion
+falls back to Mistral and sends that PDF to Mistral's hosted API. Leave the key
+unset to keep OCR entirely inside the private Docling service. Outside Compose,
+set `DOCLING_API_URL` to your own Docling Serve URL; Mistral alone still works.
+When neither provider is configured, the API starts and PDF import returns 503.
+
+After deployment, check Docling's `/ready` healthcheck and import a scanned PDF
+through Dim0. A successful readiness check alone does not verify OCR output.
+
 ## Vercel
 
 Import the repository as a Services project. The root `vercel.json` exposes the

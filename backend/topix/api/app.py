@@ -31,6 +31,7 @@ from topix.collab.agent_bridge import AgentBoardBridge
 from topix.collab.room import RoomRegistry
 from topix.config.config import Config
 from topix.datatypes.stage import StageEnum
+from topix.nlp.docling_parser import create_pdf_parser
 from topix.nlp.pipeline.parsing import ParsingPipeline
 from topix.setup import setup
 from topix.store.chat import ChatStore
@@ -52,12 +53,13 @@ logger = logging.getLogger(__name__)
 
 
 def _create_parser_pipeline() -> ParsingPipeline | None:
-    """Create the PDF parsing pipeline only when Mistral OCR is configured."""
-    if not Config.instance().run.apis.mistral.api_key:
-        logger.warning("PDF document import is disabled because MISTRAL_API_KEY is not configured.")
+    """Enable PDF import when either private Docling or Mistral is configured."""
+    parser = create_pdf_parser()
+    if parser is None:
+        logger.warning("PDF document import is disabled; configure DOCLING_API_URL or MISTRAL_API_KEY.")
         return None
 
-    return ParsingPipeline()
+    return ParsingPipeline(parser=parser)
 
 
 def create_app(stage: StageEnum):
